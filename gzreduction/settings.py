@@ -18,7 +18,9 @@ dr2_aggregated_votes_loc = os.path.join(working_dir, 'votes/dr2_aggregated_votes
 dr2_predictions_loc = os.path.join(working_dir, 'predictions/dr2_predictions.csv')
 
 # panoptes data to load
-panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/2018-09-28_panoptes_classifications.csv')
+panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/2018-09-28_panoptes-classifications.csv')
+# panoptes data as clean flat time/user/question/answer csv
+panoptes_flat_classifications = os.path.join(working_dir, 'preprocessed/2018-09-28_panoptes-classifications-flattened.csv')
 # panoptes data transformed into vote columns
 panoptes_votes_loc = os.path.join(working_dir, 'votes/2018-09-28_panoptes_votes.csv')
 # panoptes data transformed into vote columns and reduced by subject
@@ -41,7 +43,8 @@ dr1_dr2_subject_loc = os.path.join(working_dir, 'subjects/decals_dr1_and_dr2.csv
 
 # raw subjects from panoptes
 current_subjects_loc = os.path.join(working_dir, 'raw/subjects/new_subjects.csv')  # TODO what is this?? Still relevant?
-panoptes_old_style_subjects_loc = os.path.join(working_dir, 'raw/subjects/2018-09-28_panoptes_subjects.csv')
+panoptes_old_style_subjects_loc = os.path.join(working_dir, 'raw/subjects/2018-09-28_panoptes-subjects.csv')
+
 # expand metadata and save calibration subjects
 workflow = '6122'
 subject_set = '19832'

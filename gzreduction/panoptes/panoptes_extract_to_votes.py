@@ -9,14 +9,13 @@ from gzreduction import settings
 from gzreduction.schemas.dr5_schema import dr5_schema
 
 
-def raw_classifications_to_votes(
+def preprocess_classifications(
         classifications,
         schema,
         start_date=None,
         save_loc=None):
     """
-    Convert a raw Panoptes classification extract into votes
-    Panoptes classifications are exported as [user, subject, {response to T0, response to T1, etc}]
+    Convert a raw Panoptes classification extract into flattened and cleaned subjects
 
     Args:
         classifications (pd.DataFrame): Panoptes classifications export: [user, subject, {response to T0, etc}]
@@ -38,19 +37,18 @@ def raw_classifications_to_votes(
     subject_question_table = flatten_raw_classifications(classifications)
     clean_sq_table = clean_flat_table(subject_question_table, schema)
 
-    votes = subject_question_table_to_votes(clean_sq_table, question_col='task', answer_col='value', schema=schema)
-
     if save_loc is not None:
-        votes.to_csv(save_loc, index=False)
-        logging.info('Saved {} Panoptes votes to {}'.format(len(votes), save_loc))
+        clean_sq_table.to_csv(save_loc, index=False)
+        logging.info('Saved {} Panoptes flat classifications to {}'.format(len(clean_sq_table), save_loc))
 
-    return votes
+    return clean_sq_table
 
 
 def flatten_raw_classifications(classifications, save_loc=None):
     """
     Panoptes classifications are exported as [user, subject, {response to T0, response to T1, etc}]
     Flatten this into rows of [user, subject, response]
+    This part doesn't scale well with dataset size.
 
     Args:
         classifications (pd.DataFrame): Panoptes classifications export: [user, subject, {response to T0, etc}]
@@ -205,15 +203,17 @@ def remove_image_markdown(string):
             return string
 
 
-def subject_question_table_to_votes(df, question_col, answer_col, schema):
+def subject_question_table_to_votes(df, question_col, answer_col, schema, save_loc):
     """
     Transform a 'flat' table of [classification-subject-question-answer] into votes by column
+    Panoptes classifications are exported as [user, subject, {response to T0, response to T1, etc}]
 
     Args:
         df (pd.DataFrame): rows of classification-subject-question-answer, single column of answer value (plus metadata)
         question_col (str): dataframe column listing questions (probably 'task')
         answer_col (str): dataframe column listing answers (probably 'value')
         schema (Schema): definition object for questions and answers
+        save_loc (str): (optional) if not None, save Panoptes votes to this location
 
     Returns:
         (pd.DataFrame) votes with rows=classifications, columns=question_answer, values=True/False. 1 vote per row.
@@ -240,6 +240,11 @@ def subject_question_table_to_votes(df, question_col, answer_col, schema):
     # recombine
     votes = pd.concat(all_question_dfs, axis=0).fillna(0).reset_index(drop=True)
     votes['created_at'] = pd.to_datetime(votes['created_at'])
+
+    if save_loc is not None:
+        votes.to_csv(save_loc, index=False)
+        logging.info('Saved {} Panoptes votes to {}'.format(len(votes), save_loc))
+
     return votes
 
 
@@ -258,14 +263,23 @@ if __name__ == '__main__':
         'workflow_id': str
     }
     parse_dates = ['created_at']
-    nested_classifications = pd.read_csv(classifications_loc, dtype=dtypes, parse_dates=parse_dates)
+    nested_classifications = pd.read_csv(classifications_loc, dtype=dtypes, parse_dates=parse_dates, nrows=100000)
     logging.debug('Loaded {} raw classifications'.format(len(nested_classifications)))
     nested_classifications = nested_classifications[nested_classifications['workflow_id'] == '6122']
     assert not nested_classifications.empty
 
-    panoptes_votes = raw_classifications_to_votes(
+    # make flat table of classifications. Basic use-agnostic view. Fast to append.
+    flat_classifications = preprocess_classifications(
         nested_classifications,
         dr5_schema,
         start_date=datetime.datetime(year=2018, month=3, day=15),  # public launch
-        save_loc=settings.panoptes_votes_loc
+        save_loc=settings.panoptes_flat_classifications
     )
+
+    # turn flat table into columns of votes. Standard analysis view (Ouroborous also)
+    votes = subject_question_table_to_votes(
+        flat_classifications, 
+        question_col='task', 
+        answer_col='value', 
+        schema=dr5_schema,
+        save_loc=settings.panoptes_votes_loc)

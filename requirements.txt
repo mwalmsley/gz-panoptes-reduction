@@ -1,0 +1,11 @@
+coverage
+python-coveralls
+pytest-cov
+codecov
+numpy
+pandas
+scikit-learn
+matplotlib
+seaborn
+statsmodels
+astropy

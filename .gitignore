@@ -1,0 +1,13 @@
+*.idea
+.DS_Store
+*.DS_Store
+*.cache
+*.pytest_cache
+*.ipynb_checkpoints
+*__pycache__
+*.vscode
+
+*.log
+*.csv
+*.svg
+*.fits

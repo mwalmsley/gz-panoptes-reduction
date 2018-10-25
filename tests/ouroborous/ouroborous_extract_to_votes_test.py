@@ -3,8 +3,8 @@ import pytest
 import pandas as pd
 import numpy as np
 
-from reduction.ouroborous import ouroborous_extract_to_votes
-from reduction.schemas.schema import Schema, Question, Answer
+from gzreduction.ouroborous import ouroborous_extract_to_votes
+from gzreduction.schemas.schema import Schema, Question, Answer
 
 
 # TODO rename to actual decals style: decals-9, etc.

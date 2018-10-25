@@ -6,7 +6,7 @@ import pandas as pd
 
 from sklearn import preprocessing
 
-from reduction.votes_to_predictions import uncertainty
+from gzreduction.votes_to_predictions import uncertainty
 
 
 def reduced_votes_to_predictions(df, schema, save_loc):

@@ -5,8 +5,8 @@ import datetime
 
 import pandas as pd
 
-from reduction import settings
-from reduction.schemas.dr5_schema import dr5_schema
+from gzreduction import settings
+from gzreduction.schemas.dr5_schema import dr5_schema
 
 
 def raw_classifications_to_votes(

@@ -2,7 +2,7 @@ import pytest
 
 import pandas as pd
 
-from reduction import shared_utilities
+from gzreduction import shared_utilities
 
 
 @pytest.fixture()

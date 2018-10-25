@@ -4,7 +4,7 @@
 # import numpy as np
 # import matplotlib.pyplot as plt
 #
-# from reduction import volunteer_uncertainty, schema_utilities
+# from gzreduction import volunteer_uncertainty, schema_utilities
 #
 #
 # @pytest.fixture()

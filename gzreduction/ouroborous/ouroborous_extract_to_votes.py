@@ -3,8 +3,8 @@ import logging
 
 import pandas as pd
 
-from reduction.schemas.dr2_schema import dr2_schema
-from reduction import settings
+from gzreduction.schemas.dr2_schema import dr2_schema
+from gzreduction import settings
 
 
 def load_decals_votes(dr1_classifications, dr2_classifications, save_loc=None):

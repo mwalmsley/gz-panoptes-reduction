@@ -1,15 +1,13 @@
 import pytest
 
-from reduction.ouroborous import load_subjects
-from reduction import settings
-
-
-TEST_DIRECTORY = 'reduction/test_examples'
+from gzreduction.ouroborous import load_subjects
+from gzreduction import settings
+from tests import TEST_EXAMPLE_DIR
 
 
 @pytest.fixture()
 def current_subjects_loc():
-    return '{}/{}'.format(TEST_DIRECTORY, 'current_subjects_example.csv')
+    return '{}/{}'.format(TEST_EXAMPLE_DIR, 'current_subjects_example.csv')
 
 
 # TODO this should take the subject download and directly read, with no intermediate code from decals repo

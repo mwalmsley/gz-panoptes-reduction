@@ -3,7 +3,7 @@
 # import pandas as pd
 # import sympy as sp
 #
-# from reduction import dr5_schema, schema_utilities
+# from gzreduction import dr5_schema, schema_utilities
 #
 #
 # # vote_table_loc = 'reduction/data/votes/panoptes_votes.csv'

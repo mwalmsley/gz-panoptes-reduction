@@ -4,8 +4,8 @@ import logging
 import pandas as pd
 from astropy.table import Table
 
-from reduction import settings
-from reduction import shared_utilities
+from gzreduction import settings
+from gzreduction import shared_utilities
 
 
 def add_catalog_to_predictions():

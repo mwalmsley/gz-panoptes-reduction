@@ -2,7 +2,7 @@ import pytest
 
 import pandas as pd
 
-from reduction.schemas.schema import Schema, Question, Answer
+from gzreduction.schemas.schema import Schema, Question, Answer
 
 
 @pytest.fixture()

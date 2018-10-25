@@ -3,10 +3,10 @@ import logging
 
 import pandas as pd
 
-from reduction import settings
-from reduction.votes_to_predictions import reduce_votes, reduced_votes_to_predictions
-from reduction.schemas.dr2_schema import dr2_schema
-from reduction.schemas.dr5_schema import dr5_schema
+from gzreduction import settings
+from gzreduction.votes_to_predictions import reduce_votes, reduced_votes_to_predictions
+from gzreduction.schemas.dr2_schema import dr2_schema
+from gzreduction.schemas.dr5_schema import dr5_schema
 
 
 def votes_to_predictions(votes, schema, reduced_save_loc=None, predictions_save_loc=None):

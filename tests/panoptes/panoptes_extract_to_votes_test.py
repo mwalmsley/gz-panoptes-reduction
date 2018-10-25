@@ -4,8 +4,8 @@ import json
 
 import pandas as pd
 
-from reduction.panoptes import panoptes_extract_to_votes
-from reduction.schemas.schema import Schema, Question, Answer
+from gzreduction.panoptes import panoptes_extract_to_votes
+from gzreduction.schemas.schema import Schema, Question, Answer
 
 
 @pytest.fixture()

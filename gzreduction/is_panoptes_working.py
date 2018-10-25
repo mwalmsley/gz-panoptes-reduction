@@ -3,9 +3,9 @@ import logging
 
 import pandas as pd
 
-from reduction.ouroborous import load_subjects
-from reduction import settings
-from reduction import shared_utilities
+from gzreduction.ouroborous import load_subjects
+from gzreduction import settings
+from gzreduction import shared_utilities
 
 
 def create_dr2_dr5_comparison():

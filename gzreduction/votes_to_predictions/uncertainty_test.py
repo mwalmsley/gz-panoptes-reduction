@@ -3,7 +3,7 @@ import pytest
 import numpy as np
 import matplotlib.pyplot as plt
 
-from reduction.votes_to_predictions import uncertainty
+from gzreduction.votes_to_predictions import uncertainty
 
 
 # don't use a fixture, keep as callable function

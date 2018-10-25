@@ -11,3 +11,7 @@
 *.csv
 *.svg
 *.fits
+
+*.egg-info
+build/*
+dist/*

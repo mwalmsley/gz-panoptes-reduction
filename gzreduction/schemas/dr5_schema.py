@@ -1,4 +1,4 @@
-from reduction.schemas.schema import Schema, Question, Answer
+from gzreduction.schemas.schema import Schema, Question, Answer
 
 
 dr5_schema = Schema()

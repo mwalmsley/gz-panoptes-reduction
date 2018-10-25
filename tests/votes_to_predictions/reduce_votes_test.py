@@ -3,8 +3,8 @@ import pytest
 import numpy as np
 import pandas as pd
 
-from reduction.votes_to_predictions import reduce_votes
-from reduction.schemas.schema import Schema, Question, Answer
+from gzreduction.votes_to_predictions import reduce_votes
+from gzreduction.schemas.schema import Schema, Question, Answer
 
 
 @pytest.fixture()

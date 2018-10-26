@@ -394,28 +394,28 @@ def test_subject_question_table_to_votes(clean_table, schema, votes):
         assert result[col].equals(votes[col])
 
 
-# whole pipeline
-def test_raw_classifications_to_votes(raw_classifications, schema, votes):
-    result = panoptes_extract_to_votes.raw_classifications_to_votes(raw_classifications, schema)
+# whole pipeline DISABLED, THIS IS NO LONGER ONE STEP
+# def test_raw_classifications_to_votes(raw_classifications, schema, votes):
+#     result = panoptes_extract_to_votes.raw_classifications_to_votes(raw_classifications, schema)
 
-    # classification c1 - user a says T0: features, T2: no, T9: yes, for subject s1 at at 2001-01-01
-    c1 = result[result['classification_id'] == 'c1']
-    assert c1['question-0_features-or-disk'].sum() == 1
-    assert c1['question-1_round'].sum() == 0
-    assert c1['question-2_no'].sum() == 1
-    assert c1['question-9_no'].sum() == 0
-    assert c1['question-9_yes'].sum() == 1
+#     # classification c1 - user a says T0: features, T2: no, T9: yes, for subject s1 at at 2001-01-01
+#     c1 = result[result['classification_id'] == 'c1']
+#     assert c1['question-0_features-or-disk'].sum() == 1
+#     assert c1['question-1_round'].sum() == 0
+#     assert c1['question-2_no'].sum() == 1
+#     assert c1['question-9_no'].sum() == 0
+#     assert c1['question-9_yes'].sum() == 1
 
-    # classification c2 - user b says T1: round, T2: no, T9: no, for subject s1 at at 2001-01-02
-    c2 = result[result['classification_id'] == 'c2']
-    assert c2['question-0_features-or-disk'].sum() == 0
-    assert c2['question-1_round'].sum() == 1
-    assert c1['question-2_no'].sum() == 1
-    assert c2['question-9_no'].sum() == 1
-    assert c2['question-9_yes'].sum() == 0
+#     # classification c2 - user b says T1: round, T2: no, T9: no, for subject s1 at at 2001-01-02
+#     c2 = result[result['classification_id'] == 'c2']
+#     assert c2['question-0_features-or-disk'].sum() == 0
+#     assert c2['question-1_round'].sum() == 1
+#     assert c1['question-2_no'].sum() == 1
+#     assert c2['question-9_no'].sum() == 1
+#     assert c2['question-9_yes'].sum() == 0
 
-    for col in votes:
-        assert result[col].equals(votes[col])
+#     for col in votes:
+        # assert result[col].equals(votes[col])
 
 
 # TODO test to remove apostrophe from cant tell - may currently fail

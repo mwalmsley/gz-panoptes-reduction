@@ -203,7 +203,7 @@ def remove_image_markdown(string):
             return string
 
 
-def subject_question_table_to_votes(df, question_col, answer_col, schema, save_loc):
+def subject_question_table_to_votes(df, question_col, answer_col, schema, save_loc=None):
     """
     Transform a 'flat' table of [classification-subject-question-answer] into votes by column
     Panoptes classifications are exported as [user, subject, {response to T0, response to T1, etc}]
@@ -268,7 +268,7 @@ if __name__ == '__main__':
     nested_classifications = nested_classifications[nested_classifications['workflow_id'] == '6122']
     assert not nested_classifications.empty
 
-    # make flat table of classifications. Basic use-agnostic view. Fast to append.
+    # make flat table of classifications. Basic use-agnostic view. Fast to append. Slow to run!
     flat_classifications = preprocess_classifications(
         nested_classifications,
         dr5_schema,

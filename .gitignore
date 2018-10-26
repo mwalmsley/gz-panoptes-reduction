@@ -8,10 +8,12 @@
 *.vscode
 
 *.log
-*.csv
-*.svg
 *.fits
 
 *.egg-info
 build/*
 dist/*
+
+*.profile
+
+!tests

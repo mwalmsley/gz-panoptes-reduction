@@ -263,7 +263,7 @@ if __name__ == '__main__':
         'workflow_id': str
     }
     parse_dates = ['created_at']
-    nested_classifications = pd.read_csv(classifications_loc, dtype=dtypes, parse_dates=parse_dates, nrows=100000)
+    nested_classifications = pd.read_csv(classifications_loc, dtype=dtypes, parse_dates=parse_dates)
     logging.debug('Loaded {} raw classifications'.format(len(nested_classifications)))
     nested_classifications = nested_classifications[nested_classifications['workflow_id'] == '6122']
     assert not nested_classifications.empty

@@ -1,9 +1,13 @@
 
 import logging
+import os
+import io
+import sys
 import json
 import datetime
 
 import pandas as pd
+from pyspark import SparkContext, SparkConf
 
 from gzreduction import settings
 from gzreduction.schemas.dr5_schema import dr5_schema
@@ -44,6 +48,63 @@ def preprocess_classifications(
     return clean_sq_table
 
 
+def preprocess_classifications_with_spark(
+        classifications_loc,
+        schema,
+        start_date=None,
+        save_loc=None):
+
+    os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
+    appName = 'preprocess_classifications'  # name to display
+    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores.
+    conf = SparkConf().setAppName(appName).setMaster(master) 
+    sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
+
+    header_str = 'classification_id,user_name,user_id,user_ip,workflow_id,workflow_name,workflow_version,created_at,gold_standard,expert,metadata,annotations,subject_data,subject_ids'
+    lines = sc.textFile(classifications_loc)
+    lines.filter(lambda x: 'classification_id' not in x)  # remove header
+    exploded_lines = lines.flatMap(lambda x: explode_classification(x, header_str))
+    cleaned_lines = exploded_lines.map(lambda x: clean_classification(x, schema))
+    return cleaned_lines
+    # if start_date:  # e.g. live date of public GZ DR5
+    #     classifications = lines.filter(lambda x: pd.to_datetime(x)['created_at'] >= start_date]
+
+
+def explode_classification(classification_str, header_str):
+    """Convert a single line in Panoptes export to many classification Series's
+    
+    Args:
+        classification_str (str): single line in Panoptes export
+        header_str (str): matching header for Panoptes export
+    
+    Returns:
+        list: of Series of form {time, user, subject, question, answer}
+    """
+    fake_csv = io.StringIO(header_str + '\n' + classification_str.strip('\''))
+    classification = pd.read_csv(fake_csv).squeeze()  # series with sensible datatypes
+    annotation_str = classification['annotations']
+    annotation_data = load_annotation(annotation_str)
+    flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
+    for col in ['user_id', 'classification_id', 'created_at', 'workflow_version']:
+        flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
+    flat_df['subject_id'] = classification['subject_ids']  # rename subject_ids in the process
+    return [row for _, row in flat_df.iterrows()]
+
+
+def clean_classification(classification, schema):
+    """Clean a single expanded classification
+    
+    Args:
+        classification (pd.Series): of form {time, user, subject, question, answer}
+
+    Returns:
+        classification (pd.Series): as above
+    """
+    classification['value'] = sanitise_string(classification['value'])
+    classification = rename_flat_table_row(classification, schema)
+    return classification
+
+
 def flatten_raw_classifications(classifications, save_loc=None):
     """
     Panoptes classifications are exported as [user, subject, {response to T0, response to T1, etc}]
@@ -70,9 +131,6 @@ def flatten_raw_classifications(classifications, save_loc=None):
     # stick together the responses of all users and all subjects
     flat_classifications = pd.concat(all_flat_data).reset_index(drop=True)  # concat messes with the index
     flat_classifications['value'].fillna(value='', inplace=True)
-
-    logging.debug(flat_classifications['task'].value_counts())
-    logging.debug(flat_classifications['value'].value_counts())
 
     logging.info('Panoptes votes loaded: {}'.format(len(flat_classifications)))
 

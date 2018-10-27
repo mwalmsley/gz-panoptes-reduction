@@ -16,4 +16,6 @@ dist/*
 
 *.profile
 
+zooniverse_login.txt
+api_results.txt
 !tests

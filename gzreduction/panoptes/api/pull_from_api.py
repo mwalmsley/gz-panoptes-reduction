@@ -5,6 +5,7 @@ import logging
 
 from panoptes_client import Panoptes, Classification
 
+# https://panoptes.docs.apiary.io/#reference/classification/classification-collection/list-all-classifications
 
 def get_classifications():
 

@@ -31,12 +31,12 @@ def preprocess_classifications(
         (pd.DataFrame) votes with rows=classifications, columns=question_answer, values=True/False. 1 vote per row.
     """
 
-    classifications['created_at'] = pd.to_datetime(classifications['created_at'])
-    if start_date:  # e.g. live date of public GZ DR5
-        classifications = classifications[classifications['created_at'] >= start_date]
-        logging.debug('{} Panoptes classifications after {}'.format(len(classifications), start_date))
-    else:
-        logging.warning('No Panoptes classification start date selected')
+    # classifications['created_at'] = pd.to_datetime(classifications['created_at'])
+    # if start_date:  # e.g. live date of public GZ DR5
+    #     classifications = classifications[classifications['created_at'] >= start_date]
+    #     logging.debug('{} Panoptes classifications after {}'.format(len(classifications), start_date))
+    # else:
+    #     logging.warning('No Panoptes classification start date selected')
 
     subject_question_table = flatten_raw_classifications(classifications)
     clean_sq_table = clean_flat_table(subject_question_table, schema)
@@ -83,7 +83,7 @@ def explode_classification(classification_str, header_str):
     fake_csv = io.StringIO(header_str + '\n' + classification_str.strip('\''))
     classification = pd.read_csv(fake_csv).squeeze()  # series with sensible datatypes
     annotation_str = classification['annotations']
-    annotation_data = load_annotation(annotation_str)
+    annotation_data = load_annotation_json(annotation_str)
     flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
     for col in ['user_id', 'classification_id', 'created_at', 'workflow_version']:
         flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
@@ -119,7 +119,7 @@ def flatten_raw_classifications(classifications, save_loc=None):
     """
 
     all_flat_data = []
-    classifications['annotations'] = classifications['annotations'].apply(load_annotation)
+    classifications['annotations'] = classifications['annotations'].apply(load_annotation_json)
 
     for row_n, classification in classifications.iterrows():
         flat_df = pd.DataFrame(classification['annotations'], dtype=str)  # put each [task, value] pair on a row
@@ -140,7 +140,7 @@ def flatten_raw_classifications(classifications, save_loc=None):
     return flat_classifications
 
 
-def load_annotation(annotation_str):
+def load_annotation_json(annotation_str):
     """
     Convert annotation JSON
     Remove known multiple choice questions and filter out 'None' responses
@@ -314,17 +314,27 @@ if __name__ == '__main__':
         filemode='w',
         level=logging.DEBUG)
 
-    classifications_loc = settings.panoptes_old_style_classifications_loc
-    subjects_loc = settings.panoptes_old_style_subjects_loc
+    
 
-    dtypes = {
-        'workflow_id': str
-    }
-    parse_dates = ['created_at']
-    nested_classifications = pd.read_csv(classifications_loc, dtype=dtypes, parse_dates=parse_dates)
-    logging.debug('Loaded {} raw classifications'.format(len(nested_classifications)))
-    nested_classifications = nested_classifications[nested_classifications['workflow_id'] == '6122']
-    assert not nested_classifications.empty
+    os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
+    appName = 'panoptes_extract_to_votes'  # name to display
+    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores.
+    # create launch configuration
+    conf = SparkConf().setAppName(appName).setMaster(master) 
+    sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
+
+    api_classifications = sc.textFile(settings.panoptes_api_json_store)
+    extract_classifications = sc.textFile(settings.panoptes_extract_json_loc)
+    nested_classifications = sc.union(api_classifications, extract_classifications)
+
+    # dtypes = {
+    #     'workflow_id': str
+    # }
+    # parse_dates = ['created_at']
+    # nested_classifications = pd.read_csv(classifications_loc, dtype=dtypes, parse_dates=parse_dates)
+    # logging.debug('Loaded {} raw classifications'.format(len(nested_classifications)))
+    # nested_classifications = nested_classifications[nested_classifications['workflow_id'] == '6122']
+    # assert not nested_classifications.empty
 
     # make flat table of classifications. Basic use-agnostic view. Fast to append. Slow to run!
     flat_classifications = preprocess_classifications(

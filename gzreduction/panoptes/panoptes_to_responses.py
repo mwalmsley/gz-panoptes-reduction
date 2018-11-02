@@ -14,41 +14,6 @@ from gzreduction import settings
 from gzreduction.schemas.dr5_schema import dr5_schema
 
 
-# def preprocess_classifications(
-#         classifications,
-#         schema,
-#         start_date=None,
-#         save_loc=None):
-#     """
-#     Convert a raw Panoptes classification extract into flattened and cleaned subjects
-
-#     Args:
-#         classifications (pd.DataFrame): Panoptes classifications export: [user, subject, {response to T0, etc}]
-#         schema (Schema):  definition object for questions and answers
-#         start_date (datetime.pyi): (optional) if not None, filter out Panoptes classifications before this date
-#         save_loc (str): (optional) if not None, save Panoptes votes to this location
-
-#     Returns:
-#         (pd.DataFrame) votes with rows=classifications, columns=question_answer, values=True/False. 1 vote per row.
-#     """
-
-#     classifications['created_at'] = pd.to_datetime(classifications['created_at'])
-#     if start_date:  # e.g. live date of public GZ DR5
-#         classifications = classifications[classifications['created_at'] >= start_date]
-#         logging.debug('{} Panoptes classifications after {}'.format(len(classifications), start_date))
-#     else:
-#         logging.warning('No Panoptes classification start date selected')
-
-#     subject_question_table = flatten_raw_classifications(classifications)
-#     clean_sq_table = clean_flat_table(subject_question_table, schema)
-
-#     if save_loc is not None:
-#         clean_sq_table.to_csv(save_loc, index=False)
-#         logging.info('Saved {} Panoptes flat classifications to {}'.format(len(clean_sq_table), save_loc))
-
-#     return clean_sq_table
-
-
 def preprocess_classifications(
         classifications_locs,
         schema,

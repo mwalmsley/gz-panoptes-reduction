@@ -73,6 +73,6 @@ if __name__ == '__main__':
         os.remove(save_loc)
 
     convert_extract_to_json(
-            extract_loc = settings.panoptes_old_style_classifications_loc,
-            save_loc = save_loc,
-            max_lines = 50000)
+        extract_loc=settings.panoptes_old_style_classifications_loc,
+        save_loc=save_loc,
+        max_lines=50000)

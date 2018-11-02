@@ -18,8 +18,8 @@ dr2_aggregated_votes_loc = os.path.join(working_dir, 'votes/dr2_aggregated_votes
 dr2_predictions_loc = os.path.join(working_dir, 'predictions/dr2_predictions.csv')
 
 # panoptes data to load
-panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/2018-09-28_panoptes-classifications.csv')
-panoptes_extract_json_loc = os.path.join(working_dir, 'raw/classifications/2018-09-28_panoptes-classifications-json.txt')
+panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/extracts/2018-09-28_panoptes-classifications.csv')
+panoptes_extract_json_loc = os.path.join(working_dir, 'raw/classifications/extracts/2018-09-28_panoptes-classifications-json.txt')
 
 panoptes_api_json_temp_loc = os.path.join(working_dir, 'raw/classifications/api/temp/panoptes-classifications-json-api-temp.txt')
 panoptes_api_json_dir = os.path.join(working_dir, 'raw/classifications/api/chunks')  # TODO automatic date or lastid?

@@ -68,11 +68,11 @@ def convert_extract_to_json(extract_loc, save_loc, max_lines = None):
 
 
 if __name__ == '__main__':
-    save_loc = 'extract_as_json.txt'
+    save_loc = settings.panoptes_extract_json_loc
     if os.path.isfile(save_loc):
         os.remove(save_loc)
 
-convert_extract_to_json(
-        extract_loc = settings.panoptes_old_style_classifications_loc,
-        save_loc = save_loc,
-        max_lines = 50000)
+    convert_extract_to_json(
+            extract_loc = settings.panoptes_old_style_classifications_loc,
+            save_loc = save_loc,
+            max_lines = 50000)

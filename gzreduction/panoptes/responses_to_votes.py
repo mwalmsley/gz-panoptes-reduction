@@ -1,7 +1,11 @@
-
 import logging
+import os
 
 import pandas as pd
+
+from gzreduction.panoptes import panoptes_to_responses
+from gzreduction import settings
+from gzreduction.schemas.dr5_schema import dr5_schema
 
 
 def get_votes(df, question_col, answer_col, schema, save_loc=None):
@@ -18,12 +22,17 @@ def get_votes(df, question_col, answer_col, schema, save_loc=None):
     Returns:
         (pd.DataFrame) votes with rows=classifications, columns=question_answer, values=True/False. 1 vote per row.
     """
-
     all_question_dfs = []
     for question in schema.questions:
         logging.debug('Filtering for question: {}'.format(question.name))
         question_df = df[df[question_col] == question.name].dropna(how='all', axis=1)
-        assert len(question_df) != 0
+        if len(question_df) == 0:
+            raise ValueError(
+                'No answers found for task col "{}" and question {}'.format(
+                    question_col, 
+                    question.name
+                )
+            )
         logging.debug('Answers: {}'.format(question_df['value'].value_counts()))
 
         answers_as_columns = pd.get_dummies(question_df[answer_col])
@@ -48,10 +57,32 @@ def get_votes(df, question_col, answer_col, schema, save_loc=None):
     return votes
 
 
+def get_shard_locs(shard_dir):
+    candidates = [os.path.join(shard_dir, name) for name in os.listdir(response_dir)]
+    return list(filter(lambda x: 'part' in x and not x.endswith('.crc'), candidates))
+
+
 if __name__ == '__main__':
+
+    logging.basicConfig(
+        filename='responses_to_votes.log',
+        format='%(asctime)s %(message)s',
+        filemode='w',
+        level=logging.DEBUG)
+
+    response_dir = settings.panoptes_flat_classifications
+    response_locs = get_shard_locs(response_dir)
+    header = panoptes_to_responses.response_to_line_header()  # avoid duplication of schema
+    
+    response_dfs = [pd.read_csv(loc, index_col=False, header=None, names=header, delimiter=',\s+') for loc in response_locs]
+    logging.info('response shards: {}'.format(len(response_dfs)))
+    responses = pd.concat(response_dfs).reset_index(drop=True)
+    logging.info('responses: {}'.format(len(responses)))
+    logging.info(responses.iloc[0])
+
     # turn flat table into columns of votes. Standard analysis view (Ouroborous also)
-    votes = subject_question_table_to_votes(
-        flat_classifications, 
+    votes = get_votes(
+        responses, 
         question_col='task', 
         answer_col='value', 
         schema=dr5_schema,

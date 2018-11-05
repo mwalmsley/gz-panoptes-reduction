@@ -182,17 +182,28 @@ merging = Question(
     raw_name='T11'
 )
 merging.set_answers([
-    Answer(
+    Answer(  # warning - answers before and after switching this q will both be 'merging'
         name='merger',
         raw_name='merging'),
+    # old answers
     Answer(
-        name='tidal-debris',
+        name='tidal-debris-v1',
         raw_name='tidal debris'),
     Answer(
-        name='both',
+        name='both-v1',
         raw_name='both (merger & tidal debris)'),
     Answer(
-        name='neither',
+        name='neither-v1',
         raw_name='neither (no merger & no tidal debris)')
+    # new answers
+    Answer(
+        name='major-disturbance',
+        raw_name='major disturbance'),
+    Answer(
+        name='minor-disturbance',
+        raw_name='minor disturbance'),
+    Answer(
+        name='none',
+        raw_name='none')
     ])
 dr5_schema.add_question(merging)

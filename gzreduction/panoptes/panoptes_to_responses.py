@@ -53,7 +53,6 @@ def preprocess_classifications(
 
     # remove bad responses
     filtered_responses = responses.filter(lambda x: not is_multiple_choice(x) and not is_null_classification(x))
-
     # rename, remove markdown and None's
     cleaned_responses = filtered_responses.map(lambda x: clean_response(x, schema))
     # slightly awkwardly coupled
@@ -62,10 +61,35 @@ def preprocess_classifications(
     if save_loc is not None:
         if os.path.isdir(save_loc):
             shutil.rmtree(save_loc)
-        final_responses.saveAsTextFile(save_loc)
+        final_responses.map(lambda x: response_to_line(x)).saveAsTextFile(save_loc)
         logging.info('Saved {} Panoptes flat classifications to {}'.format(cleaned_responses.count(), save_loc))
 
     return final_responses  # still an rdd, not collected
+
+
+def response_to_line_header():
+    return [
+        'classification_id',
+        'created_at',
+        'user_id',
+        'subject_id',
+        'task',
+        'value',
+        'workflow_version'
+    ]
+
+
+def response_to_line(r, header=response_to_line_header()):
+    """Convert response to csv-style format, for translation to pandas
+    
+    Args:
+        r ([type]): [description]
+    
+    Returns:
+        [type]: [description]
+    """
+    data = ['{}'.format(r[col]) for col in header]
+    return ','.join(data)
 
 
 def load_classification_line(line):
@@ -223,15 +247,28 @@ def remove_image_markdown(string):
             return string
 
 
+def find_last_id_in_responses(responses_loc):
+    os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
+    appName = 'get_last_id'  # name to display
+    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores.
+    conf = SparkConf().setAppName(appName).setMaster(master) 
+    sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
+    lines = sc.textFile(responses_loc)
+    lines.max(lambda x: json.loads(x)['classification_id'])
+
+
 if __name__ == '__main__':
 
     logging.basicConfig(
-        filename='panoptes_extract_to_votes.log',
+        filename='panoptes_to_responses.log',
         format='%(asctime)s %(message)s',
         filemode='w',
         level=logging.DEBUG)
     
-    classification_locs = [settings.panoptes_extract_json_loc, settings.panoptes_api_json_store]
+    classification_locs = [settings.panoptes_extract_json_loc]
+    save_loc = settings.panoptes_flat_classifications
+    if os.path.isfile(save_loc):
+        os.remove(save_loc)
     
     # make flat table of classifications. Basic use-agnostic view. Fast to append. Slow to run!
     flat_classifications = preprocess_classifications(

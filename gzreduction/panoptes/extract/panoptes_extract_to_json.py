@@ -50,7 +50,7 @@ def load_extract_row(row_str):
     return result
 
 
-def convert_extract_to_json(extract_loc, save_loc, max_lines = None):
+def convert_extract_to_json(extract_loc, save_loc, max_lines=1e12):
     # could do this with Spark, but only runs once and loads line-by-line so minor benefit
     with open(extract_loc, 'r') as f:
         _ = f.readline()  # skip header
@@ -61,10 +61,10 @@ def convert_extract_to_json(extract_loc, save_loc, max_lines = None):
             row_data = load_extract_row(line.strip('\n'))
             api_to_json.save_classification_to_file(row_data, save_loc)
             line_n += 1
+            line = f.readline()
             pbar.update()
             # about 2500 lines per second, or about 12h for 1 million lines
         pbar.close()
-        
 
 
 if __name__ == '__main__':
@@ -75,4 +75,5 @@ if __name__ == '__main__':
     convert_extract_to_json(
         extract_loc=settings.panoptes_old_style_classifications_loc,
         save_loc=save_loc,
-        max_lines=50000)
+        # max_lines=50000
+        )

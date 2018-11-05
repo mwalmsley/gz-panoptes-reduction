@@ -13,17 +13,44 @@ from gzreduction import settings
 # https://panoptes.docs.apiary.io/#reference/classification/classification-collection/list-all-classifications
 
 
-def get_latest_classifications(json_dir, save_loc, max_classifications):
-    _, last_ids = get_saved_ids(json_dir)
-    if last_ids:
-        latest_id = np.max(last_ids)
-    else:
+def get_latest_classifications(json_dir, save_loc, max_classifications, manual_last_id=None):
+    """Get lastest classifications from Panoptes API
+
+    Downloaded classifications will be saved as a 'chunk'
+    .txt file with first and last id in filename and data as json rows
+
+    If json_dir already has chunks, continue from latest id
+    Otherwise, start from scratch.
+
+    Finally, all chunks will be joined together and saved to save_loc
+    
+    Args:
+        json_dir (str): directory for chunks - if previous chunks, will continue from them
+        save_loc (str): path to save all classifications (from all chunks)
+        max_classifications (int): stop at this many classifications, DEBUGGING ONLY
+        manual_last_id (int): (Optional) if not None, delete prev. chunks and start from this id
+    """
+    if manual_last_id is not None:
+        shutil.rmtree(json_dir)
+        os.mkdir(json_dir)
         latest_id = 0
+    else:
+        _, last_ids = get_saved_ids(json_dir)
+        if last_ids:
+            latest_id = np.max(last_ids)
+        else:
+            latest_id = 0
     save_classifications(json_dir, max_classifications, latest_id)
     join_classifications(json_dir, save_loc)
 
 
 def join_classifications(json_dir, save_loc):
+    """Concatenate all saved chunks into one .txt file
+    
+    Args:
+        json_dir (str): directory for chunks
+        save_loc (str): path to save all classifications (from all chunks)
+    """
     first_ids, last_ids = get_saved_ids(json_dir)
     assert len(first_ids) > 0
     assert len(last_ids) > 0
@@ -146,15 +173,15 @@ def read_data_from_txt(file_loc):
 
 if __name__ == '__main__':
 
-    save_loc = 'api_results.txt'
+    save_loc = settings.panoptes_api_json_store
     if os.path.isfile(save_loc):
         os.remove(save_loc)
 
     max_classifications = 50
-    # save_classifications(settings.panoptes_api_json_dir, max_classifications)
 
     get_latest_classifications(
         json_dir=settings.panoptes_api_json_dir,
         save_loc=settings.panoptes_api_json_store,
-        max_classifications=max_classifications
+        max_classifications=max_classifications,
+        manual_last_id=0
     )

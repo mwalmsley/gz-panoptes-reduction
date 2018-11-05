@@ -2,6 +2,7 @@ import os
 
 working_dir = '/data/galaxy_zoo/decals/panoptes/reduction'
 
+export_date = '2018-11-05'
 
 """
 Classification data
@@ -18,8 +19,8 @@ dr2_aggregated_votes_loc = os.path.join(working_dir, 'votes/dr2_aggregated_votes
 dr2_predictions_loc = os.path.join(working_dir, 'predictions/dr2_predictions.csv')
 
 # panoptes data to load
-panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/extracts/2018-09-28_panoptes-classifications.csv')
-panoptes_extract_json_loc = os.path.join(working_dir, 'raw/classifications/extracts/2018-09-28_panoptes-classifications-json.txt')
+panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/extracts/{}_panoptes-classifications.csv'.format(export_date))
+panoptes_extract_json_loc = os.path.join(working_dir, 'raw/classifications/extracts/{}_panoptes-classifications-json.txt'.format(export_date))
 
 panoptes_api_json_temp_loc = os.path.join(working_dir, 'raw/classifications/api/temp/panoptes-classifications-json-api-temp.txt')
 panoptes_api_json_dir = os.path.join(working_dir, 'raw/classifications/api/chunks')  # TODO automatic date or lastid?
@@ -27,13 +28,13 @@ panoptes_api_json_store = os.path.join(working_dir, 'raw/classifications/api/sto
 
 panoptes_json_classifications_loc = os.path.join(working_dir, 'raw/classifications/panoptes-classifications-json-store.txt')
 # panoptes data as clean flat time/user/question/answer csv
-panoptes_flat_classifications = os.path.join(working_dir, 'preprocessed/2018-09-28_panoptes-classifications-flattened.csv')
+panoptes_flat_classifications = os.path.join(working_dir, 'preprocessed/{}_panoptes-classifications-flattened.csv'.format(export_date))
 # panoptes data transformed into vote columns
-panoptes_votes_loc = os.path.join(working_dir, 'votes/2018-09-28_panoptes_votes.csv')
+panoptes_votes_loc = os.path.join(working_dir, 'votes/{}_panoptes_votes.csv'.format(export_date))
 # panoptes data transformed into vote columns and reduced by subject
-panoptes_aggregated_votes_loc = os.path.join(working_dir, 'votes/2018-09-28_panoptes_aggregated_votes.csv')
+panoptes_aggregated_votes_loc = os.path.join(working_dir, 'votes/{}_panoptes_aggregated_votes.csv'.format(export_date))
 # panoptes data transformed into prediction table
-panoptes_predictions_loc = os.path.join(working_dir, 'predictions/2018-09-28_panoptes_predictions.csv')
+panoptes_predictions_loc = os.path.join(working_dir, 'predictions/{}_panoptes_predictions.csv'.format(export_date))
 
 
 """
@@ -50,7 +51,7 @@ dr1_dr2_subject_loc = os.path.join(working_dir, 'subjects/decals_dr1_and_dr2.csv
 
 # raw subjects from panoptes
 current_subjects_loc = os.path.join(working_dir, 'raw/subjects/new_subjects.csv')  # TODO what is this?? Still relevant?
-panoptes_old_style_subjects_loc = os.path.join(working_dir, 'raw/subjects/2018-09-28_panoptes-subjects.csv')
+panoptes_old_style_subjects_loc = os.path.join(working_dir, 'raw/subjects/{}_panoptes-subjects.csv'.format(export_date))
 
 # expand metadata and save calibration subjects
 workflow = '6122'
@@ -63,4 +64,4 @@ Final output data: prediction tables attached to subject and Nair info
 dr2_predictions_with_subject_loc = os.path.join(working_dir, 'output/dr2_predictions_with_subject.csv')
 calibration_predictions_with_subject_loc = os.path.join(working_dir, 'output/calibration_predictions_with_subject.csv')
 
-panoptes_predictions_with_catalog_loc = os.path.join(working_dir, 'output/2018-09-28_panoptes_predictions_with_catalog.csv')
+panoptes_predictions_with_catalog_loc = os.path.join(working_dir, 'output/{}_panoptes_predictions_with_catalog.csv'.format(export_date))

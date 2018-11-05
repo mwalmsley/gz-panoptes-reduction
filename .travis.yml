@@ -8,6 +8,8 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install -e .
+  - git clone https://github.com/mwalmsley/shared-astro-utilities.git
+  - pip install -e shared-astro-utilities
 before_script:
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter

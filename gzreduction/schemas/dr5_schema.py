@@ -194,7 +194,7 @@ merging.set_answers([
         raw_name='both (merger & tidal debris)'),
     Answer(
         name='neither-v1',
-        raw_name='neither (no merger & no tidal debris)')
+        raw_name='neither (no merger & no tidal debris)'),
     # new answers
     Answer(
         name='major-disturbance',

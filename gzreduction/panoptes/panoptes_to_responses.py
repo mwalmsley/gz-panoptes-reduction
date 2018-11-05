@@ -33,7 +33,7 @@ def preprocess_classifications(
     """
     os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
     appName = 'preprocess_classifications'  # name to display
-    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores.
+    master = 'local[3]'  # don't run on remote cluster. [*] indicates use all cores.
     conf = SparkConf().setAppName(appName).setMaster(master) 
     sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
 
@@ -62,7 +62,7 @@ def preprocess_classifications(
         if os.path.isdir(save_loc):
             shutil.rmtree(save_loc)
         final_responses.map(lambda x: response_to_line(x)).saveAsTextFile(save_loc)
-        logging.info('Saved {} Panoptes flat classifications to {}'.format(cleaned_responses.count(), save_loc))
+        logging.info('Saved Panoptes responses to {}'.format(save_loc))
 
     return final_responses  # still an rdd, not collected
 
@@ -250,7 +250,7 @@ def remove_image_markdown(string):
 def find_last_id_in_responses(responses_loc):
     os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
     appName = 'get_last_id'  # name to display
-    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores.
+    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores, [3] for 3 cores
     conf = SparkConf().setAppName(appName).setMaster(master) 
     sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
     lines = sc.textFile(responses_loc)

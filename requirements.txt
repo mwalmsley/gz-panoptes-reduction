@@ -10,3 +10,4 @@ seaborn
 statsmodels
 astropy
 pyspark
+# also, shared-astro-utils

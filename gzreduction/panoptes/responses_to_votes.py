@@ -74,7 +74,7 @@ if __name__ == '__main__':
     response_locs = get_shard_locs(response_dir)
     header = panoptes_to_responses.response_to_line_header()  # avoid duplication of schema
     
-    response_dfs = [pd.read_csv(loc, index_col=False, header=None, names=header, delimiter=',\s+') for loc in response_locs]
+    response_dfs = [pd.read_csv(loc, index_col=False, header=None, names=header) for loc in response_locs]
     logging.info('response shards: {}'.format(len(response_dfs)))
     responses = pd.concat(response_dfs).reset_index(drop=True)
     logging.info('responses: {}'.format(len(responses)))

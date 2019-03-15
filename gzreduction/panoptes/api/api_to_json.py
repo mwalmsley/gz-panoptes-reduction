@@ -169,6 +169,13 @@ def read_data_from_txt(file_loc):
         s = f.read()
         return ast.literal_eval(s)
 
+"""TODO align schemas
+
+id -> classification_id
+links.project -> project_id
+links.user -> user_id
+workflow -> workflow_id
+"""
 
 
 if __name__ == '__main__':

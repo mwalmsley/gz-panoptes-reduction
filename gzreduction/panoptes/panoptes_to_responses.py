@@ -80,7 +80,7 @@ def response_to_line_header():
 
 
 def response_to_line(r, header=response_to_line_header()):
-    """Convert response to csv-style format, for translation to pandas
+    """Convert response to csv-style format, for later translation to pandas
     
     Args:
         r ([type]): [description]

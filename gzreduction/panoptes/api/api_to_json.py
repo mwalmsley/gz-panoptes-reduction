@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import logging
+from typing import Any, List, Tuple, TypeVar, Dict
 
 import numpy as np
 from tqdm import tqdm
@@ -13,7 +14,7 @@ from gzreduction import settings
 # https://panoptes.docs.apiary.io/#reference/classification/classification-collection/list-all-classifications
 
 
-def get_latest_classifications(save_dir, max_classifications, previous_dir=None, manual_last_id=None):
+def get_latest_classifications(save_dir, max_classifications, previous_dir=None, manual_last_id=None) -> None:
     """Download classifications from the Panoptes API
 
     Downloaded classifications will be saved as a new 'chunk'
@@ -43,7 +44,7 @@ def get_latest_classifications(save_dir, max_classifications, previous_dir=None,
     )
 
 
-def read_last_id(save_dir):
+def read_last_id(save_dir) -> Any:
     id_pairs = get_id_pairs_of_chunks(save_dir)
     if id_pairs:
         latest_id = np.max(id_pairs)
@@ -85,7 +86,7 @@ def read_last_id(save_dir):
 
 
 
-def get_id_pairs_of_chunks(chunk_dir):
+def get_id_pairs_of_chunks(chunk_dir) -> List[Tuple[int, int]]:
     """
     Get first and last ids of all chunks in chunk_dir
     
@@ -102,14 +103,14 @@ def get_id_pairs_of_chunks(chunk_dir):
     return id_pairs
 
 
-def get_chunk_files(chunk_dir):
+def get_chunk_files(chunk_dir) -> list:
     candidate_filenames = sorted(os.listdir(chunk_dir))
     chunk_filenames = [x for x in candidate_filenames if 'panoptes_api_first_' in x]
     chunk_locs = [os.path.join(chunk_dir, name) for name in chunk_filenames]
     return chunk_locs
 
 
-def save_classifications(save_dir, previous_dir=None, max_classifications=None, last_id=0):
+def save_classifications(save_dir, previous_dir=None, max_classifications=None, last_id=0) -> None:
     """
     Request responses from the API, starting from last_id (default 0).
     Initially save responses to a temporary file, and then rename once the download is complete and last_id is known.
@@ -128,7 +129,7 @@ def save_classifications(save_dir, previous_dir=None, max_classifications=None, 
     shutil.move(temp_loc, save_loc)
 
 
-def get_classifications(save_loc, max_classifications=None, last_id=None):
+def get_classifications(save_loc, max_classifications=None, last_id=None) -> int:
     """Save as we download line-by-line, to avoid memory issues and ensure results are saved.
     
     Args:
@@ -174,7 +175,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None):
     return latest_id
 
 
-def save_classification_to_file(classification, save_loc):
+def save_classification_to_file(classification, save_loc) -> None:
     """Save the API response to a file of json's seperated by newlines.
     If no such file exists, start one.
     
@@ -194,7 +195,7 @@ def save_classification_to_file(classification, save_loc):
         f.write('\n')    
 
 
-def read_data_from_txt(file_loc):
+def read_data_from_txt(file_loc) -> Any:
     """
     Read and evaluate a python data structure saved as a txt file.
     Args:
@@ -207,7 +208,7 @@ def read_data_from_txt(file_loc):
         return ast.literal_eval(s)
 
 
-def rename_to_match_exports(classification):
+def rename_to_match_exports(classification: Dict) -> Dict:
     classification['classification_id'] = classification['id']
     del classification['classification_id']
     classification['project_id'] = classification['links']['project']

@@ -1,6 +1,6 @@
 import os
 
-working_dir = '/data/galaxy_zoo/decals/panoptes/reduction'
+working_dir = 'data'
 
 export_date = '2018-11-05'
 
@@ -22,11 +22,8 @@ dr2_predictions_loc = os.path.join(working_dir, 'predictions/dr2_predictions.csv
 panoptes_old_style_classifications_loc = os.path.join(working_dir, 'raw/classifications/extracts/{}_panoptes-classifications.csv'.format(export_date))
 panoptes_extract_json_loc = os.path.join(working_dir, 'raw/classifications/extracts/{}_panoptes-classifications-json.txt'.format(export_date))
 
-panoptes_api_json_temp_loc = os.path.join(working_dir, 'raw/classifications/api/temp/panoptes-classifications-json-api-temp.txt')
-panoptes_api_json_dir = os.path.join(working_dir, 'raw/classifications/api/chunks')  # TODO automatic date or lastid?
-panoptes_api_json_store = os.path.join(working_dir, 'raw/classifications/api/store.txt')
+panoptes_api_json_dir = os.path.join(working_dir, 'raw/classifications/api')  # TODO automatic date or lastid?
 
-panoptes_json_classifications_loc = os.path.join(working_dir, 'raw/classifications/panoptes-classifications-json-store.txt')
 # panoptes data as clean flat time/user/question/answer csv
 panoptes_flat_classifications = os.path.join(working_dir, 'preprocessed/{}_panoptes-classifications-flattened.csv'.format(export_date))
 # panoptes data transformed into vote columns

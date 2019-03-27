@@ -4,7 +4,7 @@ import os
 import io
 import sys
 import json
-import datetime
+from datetime import datetime, timezone
 import shutil
 
 import pandas as pd
@@ -12,6 +12,7 @@ from pyspark import SparkContext, SparkConf
 
 from gzreduction import settings
 from gzreduction.schemas.dr5_schema import dr5_schema
+from gzreduction.panoptes.api import api_to_json
 
 
 def preprocess_classifications(
@@ -74,8 +75,7 @@ def response_to_line_header():
         'user_id',
         'subject_id',
         'task',
-        'value',
-        'workflow_version'
+        'value'
     ]
 
 
@@ -121,9 +121,9 @@ def explode_classification(classification):
     """
     annotation_data = classification['annotations']
     flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
-    for col in ['user_id', 'classification_id', 'created_at', 'workflow_version']:
+    for col in ['user_id', 'classification_id', 'created_at']:
         flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
-    flat_df['subject_id'] = classification['subject_ids']  # rename subject_ids in the process
+    flat_df['subject_id'] = classification['subject_id']  # WARNING export needs subject_id -> subject_ids
     return [row.to_dict() for _, row in flat_df.iterrows()]
 
 
@@ -265,8 +265,12 @@ if __name__ == '__main__':
         filemode='w',
         level=logging.DEBUG)
     
-    classification_locs = [settings.panoptes_extract_json_loc]
-    save_loc = settings.panoptes_flat_classifications
+    classification_locs = api_to_json.get_chunk_files(settings.panoptes_api_json_dir)
+    # classification_locs = [settings.panoptes_extract_json_loc]
+    # save_loc = settings.panoptes_flat_classifications
+    save_loc = 'data/temp'
+
+
     if os.path.isfile(save_loc):
         os.remove(save_loc)
     
@@ -274,6 +278,6 @@ if __name__ == '__main__':
     flat_classifications = preprocess_classifications(
         classification_locs,
         dr5_schema,
-        start_date=datetime.datetime(year=2018, month=3, day=15),  # public launch
-        save_loc=settings.panoptes_flat_classifications
+        # start_date=datetime(year=2018, month=3, day=15, tzinfo=timezone.utc),  # public launch
+        save_loc=save_loc
     )

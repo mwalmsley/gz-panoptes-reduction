@@ -21,3 +21,7 @@ api_results.txt
 !tests
 
 pytype_output
+
+data/workflow_contents
+data/raw
+auth_token.txt

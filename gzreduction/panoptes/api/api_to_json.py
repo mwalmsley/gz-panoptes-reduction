@@ -126,6 +126,9 @@ def save_classifications(save_dir, previous_dir=None, max_classifications=None, 
     new_last_id = get_classifications(temp_loc, max_classifications, last_id)
     save_name = 'panoptes_api_first_{}_last_{}.txt'.format(last_id, new_last_id)
     save_loc = os.path.join(save_dir, save_name)
+    # overwrite any existing file!
+    if os.path.exists(save_loc):
+        os.remove(save_loc)
     shutil.move(temp_loc, save_loc)
 
 
@@ -148,6 +151,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     zooniverse_login = read_data_from_txt(zooniverse_login_loc)
     Panoptes.connect(**zooniverse_login)
 
+    # TODO specify workflow if possible?
     classifications = Classification.where(
         scope='project',
         project_id=galaxy_zoo_id,
@@ -165,8 +169,8 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
             logging.info('All classifications retrieved')
             break
 
-        if int(classification['id']) > latest_id:
-            latest_id = int(classification['id'])
+        if int(classification['classification_id']) > latest_id:
+            latest_id = int(classification['classification_id'])
 
         pbar.update()
         classification_n += 1
@@ -210,25 +214,24 @@ def read_data_from_txt(file_loc) -> Any:
 
 def rename_to_match_exports(classification: Dict) -> Dict:
     classification['classification_id'] = classification['id']
-    del classification['classification_id']
+    del classification['id']
     classification['project_id'] = classification['links']['project']
     classification['user_id'] = classification['links']['user']
     classification['workflow_id'] = classification['links']['workflow']
+    classification['subject_id'] = classification['links']['subjects'][0]
     del classification['links']
     return classification
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 
-    # save_loc = settings.panoptes_api_json_store
-    # if os.path.isfile(save_loc):
-    #     os.remove(save_loc)
+    # save_dir = 'tests/test_examples'
+    save_dir = settings.panoptes_api_json_dir
+    max_classifications = 10000
 
-    # max_classifications = 50
-
-    # get_latest_classifications(
-    #     json_dir=settings.panoptes_api_json_dir,
-    #     save_loc=settings.panoptes_api_json_store,
-    #     max_classifications=max_classifications,
-    #     manual_last_id=0
-    # )
+    get_latest_classifications(
+        save_dir=save_dir,
+        previous_dir=None,
+        max_classifications=max_classifications,
+        manual_last_id='91178981'  # first DECALS classification
+    )

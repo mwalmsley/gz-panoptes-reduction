@@ -83,3 +83,5 @@ def test_get_latest_classifications(save_dir, previous_dir_exists, previous_dir)
 
 def test_rename_to_match_exports(classification):
     renamed_classification = api_to_json.rename_to_match_exports(classification)
+    for expected_col in ['workflow_id', 'user_id', 'classification_id', 'subject_id']:
+        assert expected_col in renamed_classification.keys()

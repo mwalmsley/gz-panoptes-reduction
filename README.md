@@ -3,11 +3,13 @@
 <a href="https://codeclimate.com/repos/5ad86e7c56b0a20294008bc3/test_coverage"><img src="https://api.codeclimate.com/v1/badges/8bc2a1735eb224ae42c3/test_coverage" /></a>
 [![astropy](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/)
 
-# Galaxy Zoo Panoptes
+# Galaxy Zoo Reduction
 
-This repo contains everything needed for the Galaxy Zoo Panoptes project workflows and field guide. With this repo, one should be able to quickly (albeit somewhat tediously) replicate the Galaxy Zoo Panoptes project.
+Use this repo to convert Galaxy Zoo citizen scientist responses, from Ouroborous or from Panoptes, into aggregate classifications.
 
-# Reduction 
+Responses can be provided as exports (Panoptes or Ouroborous) or downloaded through API calls (Panoptes only).
+
+# Reduction
 
 ## Reduction to Single Votes
 
@@ -48,7 +50,7 @@ The entry point is `votes_to_predictions.py`. This calls:
 - `reduced_votes_to_predictions.py` to calculate predicted answers and uncertainty.
 
 To execute, within `votes_to_predictions.py`:
-- Set `new_panoptes` and/or `new_ourorborous` to True depending on which single vote csv you would like to find predictions from.
+- Set `new_panoptes` and/or `new_ouroborous` to True depending on which single vote csv you would like to find predictions from.
 Assuming you are running Panoptes = True...
 - Ensure `settings.panoptes_votes_loc` and/or `settings.dr2_votes_loc` points to the latest single vote csv(s). This is the output location for single vote csv(s), and so should already be correct.
 - Point `settings.panoptes_aggregated_votes_loc` to where you would like to save the total votes per subject (before adding extra columns). By default, this will overwrite!

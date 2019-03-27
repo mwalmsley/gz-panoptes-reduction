@@ -13,99 +13,134 @@ from gzreduction import settings
 # https://panoptes.docs.apiary.io/#reference/classification/classification-collection/list-all-classifications
 
 
-def get_latest_classifications(json_dir, save_loc, max_classifications, manual_last_id=None):
-    """Get lastest classifications from Panoptes API
+def get_latest_classifications(save_dir, max_classifications, previous_dir=None, manual_last_id=None):
+    """Download classifications from the Panoptes API
 
-    Downloaded classifications will be saved as a 'chunk'
-    .txt file with first and last id in filename and data as json rows
+    Downloaded classifications will be saved as a new 'chunk'
+    .txt file with first and last id in the filename and data as json line-seperated rows
 
-    If json_dir already has chunks, continue from latest id
+    If previous_dir is provided and has chunks, continue from the latest id in previous_dir
     Otherwise, start from scratch.
-
-    Finally, all chunks will be joined together and saved to save_loc
     
     Args:
-        json_dir (str): directory for chunks - if previous chunks, will continue from them
-        save_loc (str): path to save all classifications (from all chunks)
-        max_classifications (int): stop at this many classifications, DEBUGGING ONLY
-        manual_last_id (int): (Optional) if not None, delete prev. chunks and start from this id
+        save_dir (str): directory into which to save new chunk
+        max_classifications (int): stop at this many classifications (useful for debugging)
+        previous_dir (str): if previous chunks are in this directory, will continue from them
+        manual_last_id (int): (Optional) if not None, start from this id. Incompatible with previous_dir.
     """
-    if manual_last_id is not None:
-        shutil.rmtree(json_dir)
-        os.mkdir(json_dir)
-        latest_id = 0
+    assert save_dir
+    if manual_last_id is None:
+        last_id = read_last_id(save_dir)
     else:
-        _, last_ids = get_saved_ids(json_dir)
-        if last_ids:
-            latest_id = np.max(last_ids)
-        else:
-            latest_id = 0
-    save_classifications(json_dir, max_classifications, latest_id)
-    join_classifications(json_dir, save_loc)
+        assert previous_dir is None
+        last_id = manual_last_id
+
+    save_classifications(
+        save_dir=save_dir, 
+        max_classifications=max_classifications, 
+        previous_dir=previous_dir,
+        last_id=last_id
+    )
 
 
-def join_classifications(json_dir, save_loc):
-    """Concatenate all saved chunks into one .txt file
+def read_last_id(save_dir):
+    id_pairs = get_id_pairs_of_chunks(save_dir)
+    if id_pairs:
+        latest_id = np.max(id_pairs)
+    else:
+        latest_id = 0
+    return latest_id
+    # join_classifications(save_dir, save_loc) # TODO see below
+
+
+# TODO move this outside, perhaps to before Spark reduction
+# def join_classifications(json_dir, save_loc):
+#     """Concatenate all saved chunks into one .txt file
     
-    Args:
-        json_dir (str): directory for chunks
-        save_loc (str): path to save all classifications (from all chunks)
+#     Args:
+#         json_dir (str): directory for chunks
+#         save_loc (str): path to save all classifications (from all chunks)
+#     """
+#     first_ids, last_ids = get_ids_of_chunks(json_dir)
+#     assert len(first_ids) > 0
+#     assert len(last_ids) > 0
+#     # by definition, expect:
+#     assert np.min(first_ids) < np.min(last_ids)
+
+#     # apart from final last id, all last ids should match a first id
+#     last_ids.sort()  # inplace!
+#     for last_id in last_ids[:-1]:
+#         assert last_id in first_ids
+
+#     # save to concatenate
+#     with open(save_loc, 'w') as save_f:
+#         for file_loc in tqdm(get_chunk_files(json_dir)):
+#             logging.info('Adding {}'.format(file_loc))
+#             if file_loc != save_loc:
+#                 with open(file_loc, 'r') as read_f:
+#                     line = read_f.readline()
+#                     while line:
+#                         save_f.write(line)
+#                         line = read_f.readline()
+
+
+
+def get_id_pairs_of_chunks(chunk_dir):
     """
-    first_ids, last_ids = get_saved_ids(json_dir)
-    assert len(first_ids) > 0
-    assert len(last_ids) > 0
-    # by definition, expect:
-    assert np.min(first_ids) < np.min(last_ids)
-
-    # apart from final last id, all last ids should match a first id
-    last_ids.sort()  # inplace!
-    for last_id in last_ids[:-1]:
-        assert last_id in first_ids
-
-    # save to concatenate
-    with open(save_loc, 'w') as save_f:
-        for file_loc in tqdm(get_chunk_files(json_dir)):
-            logging.info('Adding {}'.format(file_loc))
-            if file_loc != save_loc:
-                with open(file_loc, 'r') as read_f:
-                    line = read_f.readline()
-                    while line:
-                        save_f.write(line)
-                        line = read_f.readline()
-
-
-def get_saved_ids(json_dir):
-    """[summary]
+    Get first and last ids of all chunks in chunk_dir
     
     Args:
-        json_dir ([type]): [description]
+        chunk_dir (str): directory to search for chunks
     
     Returns:
-        [type]: [description]
+        list: of form [(first_id, last_id), ...]
     """
-
-    files = get_chunk_files(json_dir)
+    files = get_chunk_files(chunk_dir)
     first_ids = [int(f.split('_')[-3]) for f in files]
     last_ids = [int(f.split('_')[-1].strip('.txt')) for f in files]
-    return first_ids, last_ids
+    id_pairs = list(zip(first_ids, last_ids))
+    return id_pairs
 
 
-def get_chunk_files(json_dir):
-    candidate_filenames = os.listdir(json_dir)
-    candidate_locs = [os.path.join(json_dir, name) for name in candidate_filenames]
-    return list(filter(lambda x: 'panoptes_api_first_' in x, candidate_locs))
+def get_chunk_files(chunk_dir):
+    candidate_filenames = sorted(os.listdir(chunk_dir))
+    chunk_filenames = [x for x in candidate_filenames if 'panoptes_api_first_' in x]
+    chunk_locs = [os.path.join(chunk_dir, name) for name in chunk_filenames]
+    return chunk_locs
 
 
-
-def save_classifications(save_dir, max_classifications=None, last_id=0):
-    latest_id = get_classifications(settings.panoptes_api_json_temp_loc, max_classifications, last_id)
-    save_name = 'panoptes_api_first_{}_last_{}.txt'.format(last_id, latest_id)
+def save_classifications(save_dir, previous_dir=None, max_classifications=None, last_id=0):
+    """
+    Request responses from the API, starting from last_id (default 0).
+    Initially save responses to a temporary file, and then rename once the download is complete and last_id is known.
+    
+    Args:
+        save_dir (str): directory into which to save new chunk
+        previous_dir (str, optional): Defaults to None. [description]
+        max_classifications (int, optional): Defaults to None. [description]
+        last_id (int, optional): Defaults to 0. [description]
+    """
+    # download here until download is complete, then rename according to last id in download
+    temp_loc = os.path.join(save_dir, 'panoptes_api_download_in_progress.txt')
+    new_last_id = get_classifications(temp_loc, max_classifications, last_id)
+    save_name = 'panoptes_api_first_{}_last_{}.txt'.format(last_id, new_last_id)
     save_loc = os.path.join(save_dir, save_name)
-    shutil.copy(settings.panoptes_api_json_temp_loc, save_loc)
+    shutil.move(temp_loc, save_loc)
 
 
 def get_classifications(save_loc, max_classifications=None, last_id=None):
+    """Save as we download line-by-line, to avoid memory issues and ensure results are saved.
+    
+    Args:
+        save_loc ([type]): [description]
+        max_classifications ([type], optional): Defaults to None. [description]
+        last_id ([type], optional): Defaults to None. [description]
+    
+    Returns:
+        int: last id downloaded
+    """
 
+    assert save_loc
     zooniverse_login_loc = 'zooniverse_login.txt'
     galaxy_zoo_id = 5733  # hardcode for now
 
@@ -124,7 +159,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None):
     while classification_n < max_classifications:
         try:
             classification = classifications.next().raw  # raw is the actual data
-            save_classification_to_file(classification, save_loc)
+            save_classification_to_file(rename_to_match_exports(classification), save_loc)
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
             break
@@ -140,13 +175,15 @@ def get_classifications(save_loc, max_classifications=None, last_id=None):
 
 
 def save_classification_to_file(classification, save_loc):
-    """General
+    """Save the API response to a file of json's seperated by newlines.
+    If no such file exists, start one.
     
     Args:
         classification ([type]): [description]
         save_loc ([type]): [description]
     """
-
+    assert classification
+    assert save_loc
     if os.path.exists(save_loc):
         append_write = 'a' # append if already exists
     else:
@@ -169,26 +206,28 @@ def read_data_from_txt(file_loc):
         s = f.read()
         return ast.literal_eval(s)
 
-"""TODO align schemas
 
-id -> classification_id
-links.project -> project_id
-links.user -> user_id
-workflow -> workflow_id
-"""
+def rename_to_match_exports(classification):
+    classification['classification_id'] = classification['id']
+    del classification['classification_id']
+    classification['project_id'] = classification['links']['project']
+    classification['user_id'] = classification['links']['user']
+    classification['workflow_id'] = classification['links']['workflow']
+    del classification['links']
+    return classification
 
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
 
-    save_loc = settings.panoptes_api_json_store
-    if os.path.isfile(save_loc):
-        os.remove(save_loc)
+    # save_loc = settings.panoptes_api_json_store
+    # if os.path.isfile(save_loc):
+    #     os.remove(save_loc)
 
-    max_classifications = 50
+    # max_classifications = 50
 
-    get_latest_classifications(
-        json_dir=settings.panoptes_api_json_dir,
-        save_loc=settings.panoptes_api_json_store,
-        max_classifications=max_classifications,
-        manual_last_id=0
-    )
+    # get_latest_classifications(
+    #     json_dir=settings.panoptes_api_json_dir,
+    #     save_loc=settings.panoptes_api_json_store,
+    #     max_classifications=max_classifications,
+    #     manual_last_id=0
+    # )

@@ -81,11 +81,12 @@ def test_clean_response(response, schema, cleaned_response):
     assert cleaned.equals(cleaned_response)
 
 
-def test_preprocess_classifications(classification_locs, schema, cleaned_responses):
+def test_preprocess_classifications(tmpdir, classification_locs, schema, cleaned_responses):
+    save_loc = tmpdir.mkdir('spark_export').strpath
     responses = panoptes_to_responses.preprocess_classifications(
         classification_locs, 
         schema,
-        save_loc='/data/spark/temp_export'
+        save_loc=save_loc
         )
     response_list = responses.collect()
     for n in range(len(cleaned_responses)):

@@ -19,3 +19,5 @@ dist/*
 zooniverse_login.txt
 api_results.txt
 !tests
+
+pytype_output

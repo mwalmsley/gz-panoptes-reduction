@@ -1,10 +1,13 @@
 from collections import namedtuple
+from typing import List, Dict
 
 from datetime import datetime
 import json
 
 import requests
 import pandas as pd
+
+from gzreduction.panoptes.api import api_to_json
 
 with open('auth_token.txt', 'r') as f:
     AUTH_TOKEN = f.readline()
@@ -75,47 +78,81 @@ def make_workflow_version_df(workflow_versions):
     return df
 
 def find_matching_version(raw_classification, workflow_df):
-    decimal_version_id = raw_classification['metadata']['workflow_version']
-    version_id_pair = read_workflow_versions_from_decimal_str(decimal_version_id)
-    print(version_id_pair)
-    print(workflow_df['major_number'])
-    print(workflow_df['minor_number'])
+    version_id_pair = get_version_id_pair(raw_classification)
     matching_workflows = workflow_df[
         (workflow_df['major_number'] == version_id_pair.major) & (workflow_df['minor_number'] == version_id_pair.minor)
         ]
     assert len(matching_workflows) == 1
-    return matching_workflows.squeeze()
+    return matching_workflows.squeeze().to_dict()
+
+def get_version_id_pair(raw_classification: Dict):
+    decimal_version_id = raw_classification['metadata']['workflow_version']
+    version_id_pair = read_workflow_versions_from_decimal_str(decimal_version_id)
+    return version_id_pair
+
+def insert_workflow_contents(raw_classification: Dict, workflow: Dict) -> Dict:
+    classification = raw_classification.copy()  # will modify by reference below
+    annotations = classification['annotations'] # list of task/answer (index) dict pairs
+    workflow_strings = workflow['strings'] # dict of informative strings for each task or answer
+    for annotation_n in range(len(annotations)):  # indexing to avoid modifying the iterator
+        task_value_pair = annotations[annotation_n]
+        # get the indices
+        # task e.g. T0, value e.g. 1 (indices)
+        task_id = task_value_pair['task']
+        value_index = task_value_pair['value']
+        # get the strings
+        #e.g.T0.question, T0.answers.0.label, 
+        task_string = workflow_strings['{}.question'.format(task_id)]
+        if isinstance(value_index, int):
+            multiple_choice = False
+            value_string = workflow_strings['{}.answers.{}.label'.format(task_id, value_index)]
+        elif isinstance(value_index, list):
+            multiple_choice = True
+            value_string = [workflow_strings['{}.answers.{}.label'.format(task_id, index)] for index in value_index]
+        # modify task/value pairs to include both indices and strings
+        task_value_pair['task'] = task_string
+        task_value_pair['task_id'] = task_id
+        task_value_pair['value'] = value_string
+        task_value_pair['value_index'] = value_index
+        task_value_pair['multiple_choice'] = multiple_choice
+    return classification  # modified
 
 
-# def find_matching_version(raw_classification, all_workflow_versions):
-    # O(n_versions * n_classifications), maybe slow
-    # assumes workflow versions are sorted by time
-    # classification_time = datetime(raw_classification['metadata']['started_at'])
-    # for version_n, version in enumerate(all_workflow_versions):  
-    #     version_time = datetime(version['created_at'])
-    #     if version_time > classification_time:
-    #         matched_version_index = version_n - 1  # the previous version was used for this classification
-    #         return all_workflow_versions[matched_version_index].copy()
+def rename_metadata_like_exports(classification: Dict) -> Dict:
+    classification = clarify_workflow_version(classification)  # requires links attribute
+    classification['classification_id'] = classification['id']
+    del classification['id']
+    classification['project_id'] = classification['links']['project']
+    classification['user_id'] = classification['links']['user']
+    classification['workflow_id'] = classification['links']['workflow']
+    classification['subject_id'] = classification['links']['subjects'][0]  # assumes single subject
+    del classification['links']
+    return classification
 
-def insert_workflow_contents(raw_classification, workflow_version):
-    raise NotImplementedError
 
-# def temp():
-#     from urllib import request
-
-#     headers = {
-#     'Accept': 'application/vnd.api+json; version=1',
-#     'Content-Type': 'application/json'
-#     }
-#     # r = request.Request('https://panoptes-staging.zooniverse.org/api/workflows/2/versions', headers=headers)
-#     r = request.Request('https://panoptes.zooniverse.org/api/workflows/6122/versions', headers=headers)
-
-#     response_body = request.urlopen(r).read()
-#     print(response_body)    
+def clarify_workflow_version(input_classification: Dict):
+    classification = input_classification.copy()  # avoid modify-by-reference
+    version_id_pair = get_version_id_pair(classification)
+    classification['workflow_major_version'] = version_id_pair.major
+    classification['workflow_minor_version'] = version_id_pair.minor
+    return classification
 
 if __name__ == '__main__':
 
     workflow_versions = get_all_workflow_versions('6122')
+    workflows_df = make_workflow_version_df(workflow_versions)
+
+    raw_classifications_dirs = ['data/raw/classifications/api']
+    raw_classification_locs = []
+    for raw_dir in raw_classifications_dirs:
+        raw_classification_locs.extend(api_to_json.get_chunk_files(raw_dir))
+
+    save_dir = 'data/raw/classifications/api/derived'
+
+    for raw_loc in raw_classification_locs:
+        with open(raw_loc, 'r') as f:
+            classifications = f.readlines()
+
     # with open('tests/test_examples/workflow_versions.txt', 'w') as f:
     #     json.dump(workflow_versions, f)
     # print(workflow_versions)

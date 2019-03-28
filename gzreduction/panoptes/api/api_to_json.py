@@ -164,7 +164,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     while classification_n < max_classifications:
         try:
             classification = classifications.next().raw  # raw is the actual data
-            save_classification_to_file(rename_to_match_exports(classification), save_loc)
+            save_classification_to_file(classification, save_loc)
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
             break
@@ -210,17 +210,6 @@ def read_data_from_txt(file_loc) -> Any:
     with open(file_loc, 'r') as f:
         s = f.read()
         return ast.literal_eval(s)
-
-
-def rename_to_match_exports(classification: Dict) -> Dict:
-    classification['classification_id'] = classification['id']
-    del classification['id']
-    classification['project_id'] = classification['links']['project']
-    classification['user_id'] = classification['links']['user']
-    classification['workflow_id'] = classification['links']['workflow']
-    classification['subject_id'] = classification['links']['subjects'][0]
-    del classification['links']
-    return classification
 
 
 if __name__ == '__main__':

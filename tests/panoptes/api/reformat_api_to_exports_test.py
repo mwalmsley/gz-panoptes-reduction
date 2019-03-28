@@ -89,8 +89,47 @@ def test_find_matching_version(classification, workflows_df):
     assert isinstance(workflow, pd.Series)
     assert workflow['major_number'] == '28'
     assert workflow['minor_number'] == '30'
+    # will use later as fixture
+    with open(os.path.join(TEST_EXAMPLE_DIR, 'workflow_28_30.txt'), 'w') as f:
+        data = workflow.to_dict()
+        for bool_col in ['grouped', 'pairwise', 'prioritized']:
+                del data[bool_col]  # for simplicity of saving, I don't care about these columns
+        json.dump(data, f)
+
+@pytest.fixture()
+def workflow():
+        with open(os.path.join(TEST_EXAMPLE_DIR, 'workflow_28_30.txt'), 'r') as f:
+                return json.load(f)
 
 
-# TODO merge the classification and workflow info
+def test_insert_workflow_contents(classification, workflow):
+        result = reformat_api_like_exports.insert_workflow_contents(classification, workflow)
+        print(result['annotations'])
+        for annotation in result['annotations']:
+                for expected_attr in ['task', 'task_id', 'value', 'value_index', 'multiple_choice']:
+                        assert expected_attr in annotation.keys()
 
-# TODO move the renaming of classification cols to here
+def test_rename_metadata_like_exports(classification):
+        pass
+
+"""
+Annotations ultimately look like:
+[
+        {
+                'task': 'Is the galaxy simply smooth and rounded, with no sign of a disk?', 
+                'value': '![feature_or_disk.png](https://panoptes-uploads.zooniverse.org/production/project_attached_image/f353f2f1-a47e-439d-b9ca-020199162a79.png) Features or Disk', 
+                'task_id': 'T0', 
+                'value_index': 1, 
+                'multiple_choice': False
+        }, 
+        ...
+        {
+                'task': 'Do you see any of these rare features in the image?', 
+                'value': ['![ring.png](https://panoptes-uploads.zooniverse.org/production/project_attached_image/aa3e8836-6f38-474c-a643-4dda5f3776f6.png) Ring'], 
+                'task_id': 'T10', 
+                'value_index': [0], 
+                'multiple_choice': True
+        }
+]
+
+"""

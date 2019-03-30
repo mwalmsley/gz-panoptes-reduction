@@ -1,6 +1,6 @@
+import os
 from collections import namedtuple
 from typing import List, Dict
-
 from datetime import datetime
 import json
 
@@ -150,8 +150,18 @@ if __name__ == '__main__':
     save_dir = 'data/raw/classifications/api/derived'
 
     for raw_loc in raw_classification_locs:
-        with open(raw_loc, 'r') as f:
-            classifications = f.readlines()
+        raw_name = os.path.split(raw_loc)[-1]
+        save_loc = os.path.join(save_dir, raw_name)
+        with open(raw_loc, 'r') as read_f:
+            with open(save_loc, 'w') as write_f:
+                while True:
+                    classification = read_f.readline()
+                    if not classification:
+                        break
+                    derived_classification = derive_classification(classification)
+                    json.dump(derived_classification, write_f)
+                    write_f.write('\n')
+                    
 
     # with open('tests/test_examples/workflow_versions.txt', 'w') as f:
     #     json.dump(workflow_versions, f)

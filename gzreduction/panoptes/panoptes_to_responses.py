@@ -128,11 +128,14 @@ def explode_classification(classification):
 
 
 def is_multiple_choice(response):
-    multiple_choice = {
-        'Do you see any of these rare features in the image?',
-        'Do you see any of these rare features?',
-    }
-    return response['task_label'] in multiple_choice
+    try:
+        return response['multiple_choice'] == True  # also handles = None -> False
+    except KeyError:  # for exports where this field doesn't yet exist
+        multiple_choice = {
+            'Do you see any of these rare features in the image?',
+            'Do you see any of these rare features?',
+        }
+        return response['task_label'] in multiple_choice
 
 
 def is_null_classification(response):
@@ -265,12 +268,11 @@ if __name__ == '__main__':
         filemode='w',
         level=logging.DEBUG)
     
-    classification_locs = api_to_json.get_chunk_files(settings.panoptes_api_json_dir)
-    # classification_locs = [settings.panoptes_extract_json_loc]
-    # save_loc = settings.panoptes_flat_classifications
-    save_loc = 'data/temp'
+    classification_dir = 'data/raw/classifications/api/derived'
+    classification_locs = api_to_json.get_chunk_files(classification_dir)
 
-
+    save_loc = settings.panoptes_flat_classifications
+    # save_loc = 'data/temp'
     if os.path.isfile(save_loc):
         os.remove(save_loc)
     
@@ -278,6 +280,6 @@ if __name__ == '__main__':
     flat_classifications = preprocess_classifications(
         classification_locs,
         dr5_schema,
-        # start_date=datetime(year=2018, month=3, day=15, tzinfo=timezone.utc),  # public launch
+        start_date=datetime(year=2018, month=3, day=15, tzinfo=timezone.utc),  # public launch
         save_loc=save_loc
     )

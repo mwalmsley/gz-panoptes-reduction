@@ -46,6 +46,10 @@ class Question(object):
         self.truth_encoded = name + '_truth-encoded'
         self.answers = None
 
+    def __repr__(self):
+        return 'Question {}'.format(self.name)
+
+
     def set_answers(self, answers):
         [answer.set_question(self) for answer in answers]
         self.answers = answers
@@ -101,3 +105,6 @@ class Answer(object):
 
     def set_question(self, question):
         self.question = question
+    
+    def __repr__(self):
+        return 'Answer {} to {}'.format(self.name, self.question)

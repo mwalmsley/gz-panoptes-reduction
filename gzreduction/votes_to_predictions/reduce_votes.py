@@ -23,7 +23,7 @@ def reduce_all_questions(input_df, schema, save_loc=None):
 
     # every column ending _count should be added
     count_agg = dict(zip(count_columns, ['sum' for n in range(len(count_columns))]))
-
+    # will fail if df is missing a column from the schema
     reduced_df = df.groupby('subject_id').agg(count_agg).reset_index()
 
     # replace all NaN in count columns with 0

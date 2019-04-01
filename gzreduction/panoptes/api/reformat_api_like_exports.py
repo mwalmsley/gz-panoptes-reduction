@@ -102,15 +102,21 @@ def insert_workflow_contents(raw_classification: Dict, workflow: Dict) -> Dict:
         value_index = task_value_pair['value']
         # get the strings
         #e.g.T0.question, T0.answers.0.label, 
-        task_string = workflow_strings['{}.question'.format(task_id)]
+        task_label = workflow_strings['{}.question'.format(task_id)]
         if isinstance(value_index, int):
             multiple_choice = False
             value_string = workflow_strings['{}.answers.{}.label'.format(task_id, value_index)]
         elif isinstance(value_index, list):
             multiple_choice = True
             value_string = [workflow_strings['{}.answers.{}.label'.format(task_id, index)] for index in value_index]
+        elif not value_index:  # i.e. None
+            multiple_choice = None
+            value_string = None
+        else:
+            print(task_id, task_label)
+            raise ValueError('value index not recognised: {}'.format(value_index))
         # modify task/value pairs to include both indices and strings
-        task_value_pair['task'] = task_string
+        task_value_pair['task_label'] = task_label
         task_value_pair['task_id'] = task_id
         task_value_pair['value'] = value_string
         task_value_pair['value_index'] = value_index
@@ -137,9 +143,20 @@ def clarify_workflow_version(input_classification: Dict):
     classification['workflow_minor_version'] = version_id_pair.minor
     return classification
 
+
+def derive_classification(classification, workflows_df):
+    classification = clarify_workflow_version(classification)
+    classification = rename_metadata_like_exports(classification)
+    workflow = find_matching_version(classification, workflows_df)
+    classification = insert_workflow_contents(classification, workflow)
+    return classification
+
+
 if __name__ == '__main__':
 
-    workflow_versions = get_all_workflow_versions('6122')
+    workflow_id = '6122'  # GZ decals workflow
+
+    workflow_versions = get_all_workflow_versions(workflow_id)
     workflows_df = make_workflow_version_df(workflow_versions)
 
     raw_classifications_dirs = ['data/raw/classifications/api']
@@ -155,13 +172,38 @@ if __name__ == '__main__':
         with open(raw_loc, 'r') as read_f:
             with open(save_loc, 'w') as write_f:
                 while True:
-                    classification = read_f.readline()
-                    if not classification:
+                    line = read_f.readline()
+                    if not line:
                         break
-                    derived_classification = derive_classification(classification)
-                    json.dump(derived_classification, write_f)
-                    write_f.write('\n')
-                    
+                    classification = json.loads(line)
+                    if classification['links']['workflow'] == workflow_id:
+                        derived_classification = derive_classification(classification, workflows_df)
+                        json.dump(derived_classification, write_f)
+                        write_f.write('\n')
+    
+        # with open(raw_loc, 'r') as read_f:
+        #     # verify all classifications are recorded
+        #     all_raw_classifications = [json.loads(x) for x in read_f.readlines()]
+        #     all_matching_classifications = [x for x in all_raw_classifications if x['links']['workflow'] == '6122']
+        #     classification_ids = [x['id'] for x in all_matching_classifications]
+
+        # with open(save_loc, 'r') as save_f:
+        #     all_derived_classifications = [json.loads(x) for x in save_f.readlines()]
+        #     derived_ids = [x['classification_id'] for x in all_derived_classifications]
+        
+        # print(len(classification_ids), len(derived_ids))
+        
+        # from collections import Counter
+
+        # raw_counter = Counter(classification_ids)
+        # derived_counter = Counter(derived_ids)
+
+        # print(raw_counter - derived_counter)
+
+                
+
+
+
 
     # with open('tests/test_examples/workflow_versions.txt', 'w') as f:
     #     json.dump(workflow_versions, f)

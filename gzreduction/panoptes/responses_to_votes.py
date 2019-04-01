@@ -36,13 +36,20 @@ def get_votes(df, question_col, answer_col, schema, save_loc=None):
         logging.debug('Answers: {}'.format(question_df['value'].value_counts()))
 
         answers_as_columns = pd.get_dummies(question_df[answer_col])
+        # if any answers are missing (i.e. no responses with that answer), add with 0's
+        answers_without_responses = set(question.get_answer_names()) - set(answers_as_columns.columns.values)
+        if answers_without_responses:
+            logging.warning('Missing responses for {}, filling in with 0s'.format(answers_without_responses))
+            for missing_answer in answers_without_responses:
+                answers_as_columns[missing_answer] = 0
 
-        # rename answer columns to count columns as some answers are identical for diff. questions
+        # rename answer columns to count columns (i.e. '{question}_{answer}_count') 
+        # as some answers are identical for diff. questions
         answers = question.answers
         answer_cols = map(lambda x: x.name, answers)
         count_cols = map(lambda x: question.get_count_column(x), answers)
         answers_as_columns.rename(columns=dict(zip(answer_cols, count_cols)), inplace=True)
-
+        # stick columns for the existence of each answer on to left hand side of df, values as binary indicators
         questions_and_answers = pd.concat([question_df, answers_as_columns], axis=1)
         all_question_dfs.append(questions_and_answers)
 
@@ -71,7 +78,7 @@ if __name__ == '__main__':
         level=logging.DEBUG)
 
     response_dir = settings.panoptes_flat_classifications
-    response_locs = get_shard_locs(response_dir)
+    response_locs = get_shard_locs(response_dir)  # Spark outputs many headerless shards, not one csv
     header = panoptes_to_responses.response_to_line_header()  # avoid duplication of schema
     
     response_dfs = [pd.read_csv(loc, index_col=False, header=None, names=header) for loc in response_locs]

@@ -162,15 +162,15 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     latest_id = 0
     pbar = tqdm(total=max_classifications)
     while classification_n < max_classifications:
-        try:
+        try:  # may possibly be requesting the very first classification twice, not clear how - TODO test
             classification = classifications.next().raw  # raw is the actual data
             save_classification_to_file(classification, save_loc)
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
             break
 
-        if int(classification['classification_id']) > latest_id:
-            latest_id = int(classification['classification_id'])
+        if int(classification['id']) > latest_id:
+            latest_id = int(classification['id'])
 
         pbar.update()
         classification_n += 1
@@ -216,11 +216,15 @@ if __name__ == '__main__':
 
     # save_dir = 'tests/test_examples'
     save_dir = settings.panoptes_api_json_dir
-    max_classifications = 10000
+    max_classifications = 100000
+
+    previous_dir = save_dir
+    # OR
+    manual_last_id = '91178981'  # first DECALS classification
 
     get_latest_classifications(
         save_dir=save_dir,
-        previous_dir=None,
+        previous_dir=previous_dir,
         max_classifications=max_classifications,
-        manual_last_id='91178981'  # first DECALS classification
+        manual_last_id=None
     )

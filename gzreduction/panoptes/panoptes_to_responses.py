@@ -268,8 +268,8 @@ if __name__ == '__main__':
         filemode='w',
         level=logging.DEBUG)
     
-    classification_dir = 'data/raw/classifications/api/derived'
-    classification_locs = api_to_json.get_chunk_files(classification_dir)
+    classification_dir = 'data/raw/classifications/api'
+    classification_locs = api_to_json.get_chunk_files(classification_dir, derived=True)
 
     save_loc = settings.panoptes_flat_classifications
     # save_loc = 'data/temp'
@@ -280,6 +280,6 @@ if __name__ == '__main__':
     flat_classifications = preprocess_classifications(
         classification_locs,
         dr5_schema,
-        start_date=datetime(year=2018, month=3, day=15, tzinfo=timezone.utc),  # public launch
+        start_date=datetime(year=2018, month=3, day=15),  # public launch  tzinfo=timezone.utc
         save_loc=save_loc
     )

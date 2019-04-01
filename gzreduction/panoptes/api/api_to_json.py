@@ -86,7 +86,7 @@ def read_last_id(save_dir) -> Any:
 
 
 
-def get_id_pairs_of_chunks(chunk_dir) -> List[Tuple[int, int]]:
+def get_id_pairs_of_chunks(chunk_dir, derived=False) -> List[Tuple[int, int]]:
     """
     Get first and last ids of all chunks in chunk_dir
     
@@ -96,17 +96,22 @@ def get_id_pairs_of_chunks(chunk_dir) -> List[Tuple[int, int]]:
     Returns:
         list: of form [(first_id, last_id), ...]
     """
-    files = get_chunk_files(chunk_dir)
+    files = get_chunk_files(chunk_dir, derived=derived)
     first_ids = [int(f.split('_')[-3]) for f in files]
     last_ids = [int(f.split('_')[-1].strip('.txt')) for f in files]
     id_pairs = list(zip(first_ids, last_ids))
     return id_pairs
 
 
-def get_chunk_files(chunk_dir) -> list:
+def get_chunk_files(chunk_dir, derived) -> list:
     candidate_filenames = sorted(os.listdir(chunk_dir))
-    chunk_filenames = [x for x in candidate_filenames if 'panoptes_api_first_' in x]
-    chunk_locs = [os.path.join(chunk_dir, name) for name in chunk_filenames]
+    # messy coupling with names, but it's quick and effective
+    chunk_filenames = [x for x in candidate_filenames]
+    if derived:
+         selected_filenames = [x for x in chunk_filenames if 'derived' in x]
+    else:
+        selected_filenames = [x for x in chunk_filenames if not 'derived' in x]
+    chunk_locs = [os.path.join(chunk_dir, name) for name in selected_filenames]
     return chunk_locs
 
 
@@ -148,7 +153,8 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     zooniverse_login_loc = 'zooniverse_login.txt'
     galaxy_zoo_id = 5733  # hardcode for now
 
-    zooniverse_login = read_data_from_txt(zooniverse_login_loc)
+    with open(zooniverse_login_loc, 'r') as f:
+        zooniverse_login = json.load(zooniverse_login_loc)
     Panoptes.connect(**zooniverse_login)
 
     # TODO specify workflow if possible?
@@ -199,24 +205,11 @@ def save_classification_to_file(classification, save_loc) -> None:
         f.write('\n')    
 
 
-def read_data_from_txt(file_loc) -> Any:
-    """
-    Read and evaluate a python data structure saved as a txt file.
-    Args:
-        file_loc (str): location of file to read
-    Returns:
-        data structure contained in file
-    """
-    with open(file_loc, 'r') as f:
-        s = f.read()
-        return ast.literal_eval(s)
-
-
 if __name__ == '__main__':
 
     # save_dir = 'tests/test_examples'
     save_dir = settings.panoptes_api_json_dir
-    max_classifications = 100000
+    max_classifications = 1000000
 
     previous_dir = save_dir
     # OR

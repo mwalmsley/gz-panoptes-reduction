@@ -162,13 +162,12 @@ if __name__ == '__main__':
     raw_classifications_dirs = ['data/raw/classifications/api']
     raw_classification_locs = []
     for raw_dir in raw_classifications_dirs:
-        raw_classification_locs.extend(api_to_json.get_chunk_files(raw_dir))
-
-    save_dir = 'data/raw/classifications/api/derived'
+        raw_classification_locs.extend(api_to_json.get_chunk_files(raw_dir, derived=False))
 
     for raw_loc in raw_classification_locs:
-        raw_name = os.path.split(raw_loc)[-1]
-        save_loc = os.path.join(save_dir, raw_name)
+        raw_dir, raw_name = os.path.split(raw_loc)
+        # place derived file in same dir, with 'derived_' prepended to original name
+        save_loc = os.path.join(raw_dir, 'derived_' + raw_name)
         with open(raw_loc, 'r') as read_f:
             with open(save_loc, 'w') as write_f:
                 while True:

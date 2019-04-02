@@ -6,15 +6,20 @@ import json
 
 import requests
 import pandas as pd
+from panoptes_client import Panoptes
 
 from gzreduction.panoptes.api import api_to_json
 
-with open('auth_token.txt', 'r') as f:
-    AUTH_TOKEN = f.readline()
+def get_panoptes_auth_token():
+    # This token is only valid for ~2 hours. Don't use for long-running downloads. 
+    # Here, we only need a few calls to get the workflow versions
+    # Will ask the devs to expose this nicely with the already-built expiry check.
+    with open(api_to_json.ZOONIVERSE_LOGIN_LOC, 'r') as f:  # beware sneaky shared global state
+        zooniverse_login = json.load(f)
+    Panoptes.connect(**zooniverse_login)
+    return Panoptes._local.panoptes_client.get_bearer_token()
 
 WorkflowVersion = namedtuple('WorkflowVersion', ['major', 'minor'])
-
-# /api/workflow_versions?workflow_id=X
 
 # assume that calls to get workflow versions, if cached, are negligable vs. calls for classifications
 
@@ -47,11 +52,12 @@ def get_all_workflow_versions(workflow_id):
     Returns:
         [type]: [description]
     """
+    auth_token = get_panoptes_auth_token()
     all_versions = []
     page = 1
     total_pages = 999  # will be updated within while loop
     while page <= total_pages:
-        response_page = get_page_of_versions(workflow_id, page)
+        response_page = get_page_of_versions(workflow_id, page, auth_token)
         total_pages = response_page['meta']['workflow_versions']['page_count']
         total_version_count = response_page['meta']['workflow_versions']['count']
         all_versions.extend(response_page['workflow_versions'])
@@ -59,13 +65,13 @@ def get_all_workflow_versions(workflow_id):
     assert len(all_versions) == total_version_count
     return all_versions
 
-def get_page_of_versions(workflow_id, page):
+def get_page_of_versions(workflow_id, page, auth_token):
     # it's possible that the auth token I take from notifications.zooniverse expires, causing 401 errors
     url = 'https://panoptes.zooniverse.org/api/workflow_versions?page={}&workflow_id={}'.format(page, workflow_id)
     headers =  {
     'Accept': 'application/vnd.api+json; version=1',
     'Content-Type': 'application/json',
-    "Authorization": "Bearer {}".format(AUTH_TOKEN)
+    "Authorization": "Bearer {}".format(auth_token)
     }
     response = requests.get(url, headers=headers)
     return response.json()
@@ -152,6 +158,24 @@ def derive_classification(classification, workflows_df):
     return classification
 
 
+def derive_chunk(raw_loc):
+    raw_dir, raw_name = os.path.split(raw_loc)
+    # place derived file in same dir, with 'derived_' prepended to original name
+    save_loc = os.path.join(raw_dir, 'derived_' + raw_name)
+    with open(raw_loc, 'r') as read_f:
+        with open(save_loc, 'w') as write_f:
+            while True:
+                line = read_f.readline()
+                if not line:
+                    break
+                classification = json.loads(line)
+                if classification['links']['workflow'] == workflow_id:
+                    derived_classification = derive_classification(classification, workflows_df)
+                    json.dump(derived_classification, write_f)
+                    write_f.write('\n')
+
+
+
 if __name__ == '__main__':
 
     workflow_id = '6122'  # GZ decals workflow
@@ -165,64 +189,4 @@ if __name__ == '__main__':
         raw_classification_locs.extend(api_to_json.get_chunk_files(raw_dir, derived=False))
 
     for raw_loc in raw_classification_locs:
-        raw_dir, raw_name = os.path.split(raw_loc)
-        # place derived file in same dir, with 'derived_' prepended to original name
-        save_loc = os.path.join(raw_dir, 'derived_' + raw_name)
-        with open(raw_loc, 'r') as read_f:
-            with open(save_loc, 'w') as write_f:
-                while True:
-                    line = read_f.readline()
-                    if not line:
-                        break
-                    classification = json.loads(line)
-                    if classification['links']['workflow'] == workflow_id:
-                        derived_classification = derive_classification(classification, workflows_df)
-                        json.dump(derived_classification, write_f)
-                        write_f.write('\n')
-    
-        # with open(raw_loc, 'r') as read_f:
-        #     # verify all classifications are recorded
-        #     all_raw_classifications = [json.loads(x) for x in read_f.readlines()]
-        #     all_matching_classifications = [x for x in all_raw_classifications if x['links']['workflow'] == '6122']
-        #     classification_ids = [x['id'] for x in all_matching_classifications]
-
-        # with open(save_loc, 'r') as save_f:
-        #     all_derived_classifications = [json.loads(x) for x in save_f.readlines()]
-        #     derived_ids = [x['classification_id'] for x in all_derived_classifications]
-        
-        # print(len(classification_ids), len(derived_ids))
-        
-        # from collections import Counter
-
-        # raw_counter = Counter(classification_ids)
-        # derived_counter = Counter(derived_ids)
-
-        # print(raw_counter - derived_counter)
-
-                
-
-
-
-
-    # with open('tests/test_examples/workflow_versions.txt', 'w') as f:
-    #     json.dump(workflow_versions, f)
-    # print(workflow_versions)
-    # changesets = [x['changeset'] for x in workflow_versions]
-    # print([x.keys() for x in changesets])
-    # exit(0)
-    # version_ids = [version['id'] for version in workflow_versions]
-    # print(version_ids)
-
-    # print('\n')
-    # exit(0)
-
-    # version_id = '20722553'
-    # version_id = '19752322'
-    # response = get_workflow_contents(workflow_id='6122', version_id=version_id).json()
-    # print(response)
-    # response = get_workflow_contents(WorkflowVersion(major='3', minor='1'))
-    # 
-    # temp()
-
-    # response = requests.get('https://panoptes-staging.zooniverse.org/api/workflows/2/versions')
-    # print(response.text)
+        derive_chunk(raw_loc)

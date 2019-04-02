@@ -19,7 +19,7 @@ def preprocess_classifications(
         classifications_locs,
         schema,
         start_date=None,
-        save_loc=None):
+        save_dir=None):
     """
     Convert a raw Panoptes classification extract into flattened and cleaned responses
 
@@ -27,7 +27,7 @@ def preprocess_classifications(
         classification_locs (list): of text files with json rows, where each row is a classification
         schema (Schema):  definition object for questions and answers
         start_date (pd.datetime): (optional) if not None, filter out Panoptes classifications before this date
-        save_loc (str): (optional) if not None, save text file of responses to this location
+        save_dir (str): (optional) if not None, save text file of responses to this location
 
     Returns:
         (Spark RDD) rows=responses, columns=question/answer/user/time
@@ -59,11 +59,11 @@ def preprocess_classifications(
     # slightly awkwardly coupled
     final_responses = cleaned_responses.filter(lambda x: x is not None)
 
-    if save_loc is not None:
-        if os.path.isdir(save_loc):
-            shutil.rmtree(save_loc)
-        final_responses.map(lambda x: response_to_line(x)).saveAsTextFile(save_loc)
-        logging.info('Saved Panoptes responses to {}'.format(save_loc))
+    if save_dir is not None:
+        if os.path.isdir(save_dir):
+            shutil.rmtree(save_dir)
+        final_responses.map(lambda x: response_to_line(x)).saveAsTextFile(save_dir)
+        logging.info('Saved Panoptes responses to {}'.format(save_dir))
 
     return final_responses  # still an rdd, not collected
 
@@ -271,15 +271,15 @@ if __name__ == '__main__':
     classification_dir = 'data/raw/classifications/api'
     classification_locs = api_to_json.get_chunk_files(classification_dir, derived=True)
 
-    save_loc = settings.panoptes_flat_classifications
-    # save_loc = 'data/temp'
-    if os.path.isfile(save_loc):
-        os.remove(save_loc)
+    save_dir = settings.panoptes_flat_classifications
+    # save_dir = 'data/temp'
+    if os.path.isfile(save_dir):
+        os.remove(save_dir)
     
     # make flat table of classifications. Basic use-agnostic view. Fast to append. Slow to run!
     flat_classifications = preprocess_classifications(
         classification_locs,
         dr5_schema,
         start_date=datetime(year=2018, month=3, day=15),  # public launch  tzinfo=timezone.utc
-        save_loc=save_loc
+        save_dir=save_dir
     )

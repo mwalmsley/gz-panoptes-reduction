@@ -11,6 +11,7 @@ from panoptes_client import Panoptes, Classification
 
 from gzreduction import settings
 
+ZOONIVERSE_LOGIN_LOC = 'zooniverse_login.json'
 # https://panoptes.docs.apiary.io/#reference/classification/classification-collection/list-all-classifications
 
 
@@ -51,39 +52,6 @@ def read_last_id(save_dir) -> Any:
     else:
         latest_id = 0
     return latest_id
-    # join_classifications(save_dir, save_loc) # TODO see below
-
-
-# TODO move this outside, perhaps to before Spark reduction
-# def join_classifications(json_dir, save_loc):
-#     """Concatenate all saved chunks into one .txt file
-    
-#     Args:
-#         json_dir (str): directory for chunks
-#         save_loc (str): path to save all classifications (from all chunks)
-#     """
-#     first_ids, last_ids = get_ids_of_chunks(json_dir)
-#     assert len(first_ids) > 0
-#     assert len(last_ids) > 0
-#     # by definition, expect:
-#     assert np.min(first_ids) < np.min(last_ids)
-
-#     # apart from final last id, all last ids should match a first id
-#     last_ids.sort()  # inplace!
-#     for last_id in last_ids[:-1]:
-#         assert last_id in first_ids
-
-#     # save to concatenate
-#     with open(save_loc, 'w') as save_f:
-#         for file_loc in tqdm(get_chunk_files(json_dir)):
-#             logging.info('Adding {}'.format(file_loc))
-#             if file_loc != save_loc:
-#                 with open(file_loc, 'r') as read_f:
-#                     line = read_f.readline()
-#                     while line:
-#                         save_f.write(line)
-#                         line = read_f.readline()
-
 
 
 def get_id_pairs_of_chunks(chunk_dir, derived=False) -> List[Tuple[int, int]]:
@@ -129,12 +97,16 @@ def save_classifications(save_dir, previous_dir=None, max_classifications=None, 
     # download here until download is complete, then rename according to last id in download
     temp_loc = os.path.join(save_dir, 'panoptes_api_download_in_progress.txt')
     new_last_id = get_classifications(temp_loc, max_classifications, last_id)
-    save_name = 'panoptes_api_first_{}_last_{}.txt'.format(last_id, new_last_id)
-    save_loc = os.path.join(save_dir, save_name)
-    # overwrite any existing file!
-    if os.path.exists(save_loc):
-        os.remove(save_loc)
-    shutil.move(temp_loc, save_loc)
+    if os.path.exists(temp_loc):
+        save_name = 'panoptes_api_first_{}_last_{}.txt'.format(last_id, new_last_id)
+        save_loc = os.path.join(save_dir, save_name)
+        # overwrite any existing file!
+        if os.path.exists(save_loc):
+            os.remove(save_loc)
+        shutil.move(temp_loc, save_loc)
+    else:
+        logging.warning("No new classifications downloaded!")
+        print("No new classifications downloaded!")
 
 
 def get_classifications(save_loc, max_classifications=None, last_id=None) -> int:
@@ -150,11 +122,13 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     """
 
     assert save_loc
-    zooniverse_login_loc = 'zooniverse_login.txt'
+
     galaxy_zoo_id = 5733  # hardcode for now
 
-    with open(zooniverse_login_loc, 'r') as f:
-        zooniverse_login = json.load(zooniverse_login_loc)
+    p = Panoptes
+
+    with open(ZOONIVERSE_LOGIN_LOC, 'r') as f:
+        zooniverse_login = json.load(f)
     Panoptes.connect(**zooniverse_login)
 
     # TODO specify workflow if possible?
@@ -209,7 +183,7 @@ if __name__ == '__main__':
 
     # save_dir = 'tests/test_examples'
     save_dir = settings.panoptes_api_json_dir
-    max_classifications = 1000000
+    max_classifications = 10000000
 
     previous_dir = save_dir
     # OR

@@ -69,6 +69,18 @@ def get_shard_locs(shard_dir):
     return list(filter(lambda x: 'part' in x and not x.endswith('.crc'), candidates))
 
 
+def join_response_shards(shard_dir):
+    response_locs = get_shard_locs(shard_dir)  # Spark outputs many headerless shards, not one csv
+    header = panoptes_to_responses.response_to_line_header()  # avoid duplication of schema
+    
+    response_dfs = [pd.read_csv(loc, index_col=False, header=None, names=header) for loc in response_locs]
+    logging.info('response shards: {}'.format(len(response_dfs)))
+    responses = pd.concat(response_dfs).reset_index(drop=True)
+    logging.info('responses: {}'.format(len(responses)))
+    logging.info(responses.iloc[0])
+    return responses
+
+
 if __name__ == '__main__':
 
     logging.basicConfig(
@@ -78,14 +90,7 @@ if __name__ == '__main__':
         level=logging.DEBUG)
 
     response_dir = settings.panoptes_flat_classifications
-    response_locs = get_shard_locs(response_dir)  # Spark outputs many headerless shards, not one csv
-    header = panoptes_to_responses.response_to_line_header()  # avoid duplication of schema
-    
-    response_dfs = [pd.read_csv(loc, index_col=False, header=None, names=header) for loc in response_locs]
-    logging.info('response shards: {}'.format(len(response_dfs)))
-    responses = pd.concat(response_dfs).reset_index(drop=True)
-    logging.info('responses: {}'.format(len(responses)))
-    logging.info(responses.iloc[0])
+    responses = join_response_shards(response_dir)
 
     # turn flat table into columns of votes. Standard analysis view (Ouroborous also)
     votes = get_votes(

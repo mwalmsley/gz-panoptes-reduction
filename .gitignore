@@ -13,7 +13,8 @@
 *.egg-info
 build/*
 dist/*
-
+build
+dist
 *.profile
 
 zooniverse_login.txt

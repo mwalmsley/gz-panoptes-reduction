@@ -15,6 +15,14 @@ from gzreduction.schemas.dr5_schema import dr5_schema
 from gzreduction.panoptes.api import api_to_json
 
 
+def start_spark(app_name):
+    os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
+    appName = app_name  # name to display
+    master = 'local[3]'  # don't run on remote cluster. [*] indicates use all cores.
+    conf = SparkConf().setAppName(appName).setMaster(master) 
+    return SparkContext(conf=conf)  # this tells spark how to access a cluster
+
+
 def preprocess_classifications(
         classifications_locs,
         schema,
@@ -32,11 +40,7 @@ def preprocess_classifications(
     Returns:
         (Spark RDD) rows=responses, columns=question/answer/user/time
     """
-    os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
-    appName = 'preprocess_classifications'  # name to display
-    master = 'local[3]'  # don't run on remote cluster. [*] indicates use all cores.
-    conf = SparkConf().setAppName(appName).setMaster(master) 
-    sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
+    sc = start_spark('preprocess_classifications')
 
     # load all classifications as RDD
     assert isinstance(classifications_locs, list)
@@ -65,6 +69,8 @@ def preprocess_classifications(
         final_responses.map(lambda x: response_to_line(x)).saveAsTextFile(save_dir)
         logging.info('Saved Panoptes responses to {}'.format(save_dir))
 
+    sc.stop()
+
     return final_responses  # still an rdd, not collected
 
 
@@ -74,10 +80,12 @@ def response_to_line_header():
         'created_at',
         'user_id',
         'subject_id',
+        # 'iauname',
+        # 'subject_url',
         'task',
         'value'
     ]
-
+# also need to update columns_to_copy, if passing these values through
 
 def response_to_line(r, header=response_to_line_header()):
     """Convert response to csv-style format, for later translation to pandas
@@ -121,7 +129,8 @@ def explode_classification(classification):
     """
     annotation_data = classification['annotations']
     flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
-    for col in ['user_id', 'classification_id', 'created_at']:
+    columns_to_copy = ['user_id', 'classification_id', 'created_at', 'subject_id']  # also need to update response_to_line_header
+    for col in columns_to_copy:
         flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
     flat_df['subject_id'] = classification['subject_id']  # WARNING export needs subject_id -> subject_ids
     return [row.to_dict() for _, row in flat_df.iterrows()]
@@ -250,14 +259,14 @@ def remove_image_markdown(string):
             return string
 
 
-def find_last_id_in_responses(responses_loc):
-    os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
-    appName = 'get_last_id'  # name to display
-    master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores, [3] for 3 cores
-    conf = SparkConf().setAppName(appName).setMaster(master) 
-    sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
-    lines = sc.textFile(responses_loc)
-    lines.max(lambda x: json.loads(x)['classification_id'])
+# def find_last_id_in_responses(responses_loc):
+#     os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
+#     appName = 'get_last_id'  # name to display
+#     master = 'local[*]'  # don't run on remote cluster. [*] indicates use all cores, [3] for 3 cores
+#     conf = SparkConf().setAppName(appName).setMaster(master) 
+#     sc = SparkContext(conf=conf)  # this tells spark how to access a cluster
+#     lines = sc.textFile(responses_loc)
+#     lines.max(lambda x: json.loads(x)['classification_id'])
 
 
 if __name__ == '__main__':

@@ -3,6 +3,7 @@ from collections import namedtuple
 from typing import List, Dict
 from datetime import datetime
 import json
+from typing import List
 
 import requests
 import pandas as pd
@@ -19,6 +20,13 @@ def get_panoptes_auth_token():
     Panoptes.connect(**zooniverse_login)
     return Panoptes._local.panoptes_client.get_bearer_token()
 
+def get_panoptes_headers(auth_token):
+    return {
+    'Accept': 'application/vnd.api+json; version=1',
+    'Content-Type': 'application/json',
+    "Authorization": "Bearer {}".format(auth_token)
+    }
+
 WorkflowVersion = namedtuple('WorkflowVersion', ['major', 'minor'])
 
 # assume that calls to get workflow versions, if cached, are negligable vs. calls for classifications
@@ -28,13 +36,13 @@ def read_workflow_versions_from_decimal_str(major_minor_decimal_str):
     return WorkflowVersion(*major_minor_decimal_str.split('.'))
 
 
-def get_workflow_contents(workflow_id, version_id):
-    headers =  {
-    'Accept': 'application/vnd.api+json; version=1',
-    'Content-Type': 'application/json'
-    }
-    url = r'https://panoptes.zooniverse.org/api/workflow_versions/{}'.format(version_id)
-    return requests.get(url, headers=headers)
+# def get_workflow_contents(workflow_id, version_id):
+#     headers =  {
+#     'Accept': 'application/vnd.api+json; version=1',
+#     'Content-Type': 'application/json'
+#     }
+#     url = r'https://panoptes.zooniverse.org/api/workflow_versions/{}'.format(version_id)
+#     return requests.get(url, headers=headers)
 
 
 def get_all_workflow_versions(workflow_id):
@@ -68,12 +76,7 @@ def get_all_workflow_versions(workflow_id):
 def get_page_of_versions(workflow_id, page, auth_token):
     # it's possible that the auth token I take from notifications.zooniverse expires, causing 401 errors
     url = 'https://panoptes.zooniverse.org/api/workflow_versions?page={}&workflow_id={}'.format(page, workflow_id)
-    headers =  {
-    'Accept': 'application/vnd.api+json; version=1',
-    'Content-Type': 'application/json',
-    "Authorization": "Bearer {}".format(auth_token)
-    }
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=get_panoptes_headers(auth_token))
     return response.json()
 
 def make_workflow_version_df(workflow_versions):
@@ -137,8 +140,11 @@ def rename_metadata_like_exports(classification: Dict) -> Dict:
     classification['project_id'] = classification['links']['project']
     classification['user_id'] = classification['links']['user']
     classification['workflow_id'] = classification['links']['workflow']
-    classification['subject_id'] = classification['links']['subjects'][0]  # assumes single subject
-    del classification['links']
+
+    # assume subject has been added via previous API call
+    subject = classification['links']['subject']
+    classification['subject_id'] = subject['id']
+
     return classification
 
 
@@ -158,7 +164,7 @@ def derive_classification(classification, workflows_df):
     return classification
 
 
-def derive_chunk(raw_loc):
+def derive_chunk(raw_loc, workflow_id, workflows_df):
     raw_dir, raw_name = os.path.split(raw_loc)
     # place derived file in same dir, with 'derived_' prepended to original name
     save_loc = os.path.join(raw_dir, 'derived_' + raw_name)
@@ -175,18 +181,21 @@ def derive_chunk(raw_loc):
                     write_f.write('\n')
 
 
-
-if __name__ == '__main__':
-
-    workflow_id = '6122'  # GZ decals workflow
+def derive_chunks(workflow_id: str, raw_classification_dirs: List):
+    assert isinstance(raw_classification_dirs, list)
 
     workflow_versions = get_all_workflow_versions(workflow_id)
     workflows_df = make_workflow_version_df(workflow_versions)
 
-    raw_classifications_dirs = ['data/raw/classifications/api']
     raw_classification_locs = []
-    for raw_dir in raw_classifications_dirs:
+    for raw_dir in raw_classification_dirs:
         raw_classification_locs.extend(api_to_json.get_chunk_files(raw_dir, derived=False))
 
     for raw_loc in raw_classification_locs:
-        derive_chunk(raw_loc)
+        derive_chunk(raw_loc, workflow_id, workflows_df)
+
+if __name__ == '__main__':
+
+    workflow_id = '6122'  # GZ decals workflow
+    raw_classification_dirs = ['data/raw/classifications/api']
+    derive_chunks(workflow_id, raw_classification_dirs)

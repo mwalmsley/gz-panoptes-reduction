@@ -4,10 +4,11 @@ import os
 import shutil
 import logging
 from typing import Any, List, Tuple, TypeVar, Dict
+from functools import lru_cache
 
 import numpy as np
 from tqdm import tqdm
-from panoptes_client import Panoptes, Classification
+from panoptes_client import Panoptes, Classification, Subject
 
 from gzreduction import settings
 
@@ -109,7 +110,7 @@ def save_classifications(save_dir, previous_dir=None, max_classifications=None, 
         print("No new classifications downloaded!")
 
 
-def get_classifications(save_loc, max_classifications=None, last_id=None) -> int:
+def get_classifications(save_loc, max_classifications=None, last_id=None, project_id='5733') -> int:
     """Save as we download line-by-line, to avoid memory issues and ensure results are saved.
     
     Args:
@@ -120,12 +121,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     Returns:
         int: last id downloaded
     """
-
     assert save_loc
-
-    galaxy_zoo_id = 5733  # hardcode for now
-
-    p = Panoptes
 
     with open(ZOONIVERSE_LOGIN_LOC, 'r') as f:
         zooniverse_login = json.load(f)
@@ -134,7 +130,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     # TODO specify workflow if possible?
     classifications = Classification.where(
         scope='project',
-        project_id=galaxy_zoo_id,
+        project_id=project_id,
         last_id=last_id
     )
 
@@ -144,6 +140,13 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
     while classification_n < max_classifications:
         try:  # may possibly be requesting the very first classification twice, not clear how - TODO test
             classification = classifications.next().raw  # raw is the actual data
+
+            # replace subject id with subject information from API
+            subject_id = classification['links']['subjects'][0]  # only works for single-subject projects
+            del classification['links']['subjects']
+            subject = get_subject(project_id, subject_id) # assume id is unique, and hence only one match is possible
+            classification['links']['subject'] = subject.raw
+
             save_classification_to_file(classification, save_loc)
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
@@ -157,6 +160,16 @@ def get_classifications(save_loc, max_classifications=None, last_id=None) -> int
 
     pbar.close()
     return latest_id
+
+@lru_cache(maxsize=2**18)
+def get_subject(project_id, subject_id):
+    subjects = Subject.where(
+        scope='project',
+        project_id=project_id,
+        id=subject_id
+    )
+    return subjects.next() # assume id is unique, and hence only one match is possible
+
 
 
 def save_classification_to_file(classification, save_loc) -> None:
@@ -195,3 +208,30 @@ if __name__ == '__main__':
         max_classifications=max_classifications,
         manual_last_id=None
     )
+
+
+    # with open(ZOONIVERSE_LOGIN_LOC, 'r') as f:
+    #     zooniverse_login = json.load(f)
+    # Panoptes.connect(**zooniverse_login)
+
+    # TODO specify workflow if possible?
+    # classifications = Classification.where(
+    #     scope='project',
+    #     project_id=galaxy_zoo_id,
+    #     last_id=last_id
+    # )
+
+    # from panoptes_client import Subject
+    # subjects = Subject.where(
+    #     scope='project',
+    #     project_id='5733'
+    #     # id='15069378'
+    #     # silently does not support last_id
+    # )
+    # for n in range(10):
+    #     s = subjects.next()
+
+# for each (saved to disk) classification:
+# is the subject saved to indexed jsons? (to ponder)?
+# if yes, match up (to ponder)
+# if not, download to indexed jsons and then match up

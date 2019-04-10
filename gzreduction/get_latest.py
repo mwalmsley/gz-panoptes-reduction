@@ -67,8 +67,7 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
     del panoptes_votes
 
     # similarly for subjects
-    panoptes_to_subjects.get_subjects([derived_responses_loc], subject_dir)
-    subjects = responses_to_votes.join_shards(subject_dir, header=panoptes_to_subjects.header())
+    subjects = panoptes_to_subjects.get_subjects([derived_responses_loc], subject_dir)
 
     # join predictions with subjects
     predictions = pd.read_csv(predictions_loc)
@@ -81,15 +80,21 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
 
 if __name__ == '__main__':
 
-    working_dir = '/tmp/working_dir'
     workflow_id = '6122'
-    # last_id = '91178981'
-    last_id = '157128147'
+    last_id = '91178981'   # first decals
+    # last_id = '157128147'   # april
+    # max_classifications = 1000
+    max_classifications = 1e8
+    # working_dir = '/tmp/working_dir'
+    working_dir = '../zoobot/data/decals/classifications'
+    save_loc = os.path.join(working_dir, 'classifications.csv')
 
     if os.path.isdir(working_dir):
         shutil.rmtree(working_dir)
     os.mkdir(working_dir)
 
-    df = execute_reduction(workflow_id, working_dir, last_id, max_classifications=100)
+    df = execute_reduction(workflow_id, working_dir, last_id, max_classifications=max_classifications)
     print(df.iloc[0])
-    df.to_csv(os.path.join(working_dir, 'master_catalog.csv'), index=False)
+    print(df.iloc[0]['subject_url'])
+
+    df.to_csv(save_loc, index=False)

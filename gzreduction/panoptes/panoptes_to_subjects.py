@@ -4,10 +4,16 @@ import shutil
 import json
 
 from gzreduction.panoptes.api import api_to_json
-from gzreduction.panoptes import panoptes_to_responses
+from gzreduction.panoptes import panoptes_to_responses, responses_to_votes
 
 
 def get_subjects(classification_locs, save_dir):
+    extract_subjects(classification_locs, save_dir)
+    subject_df = responses_to_votes.join_shards(save_dir, header=header())
+    return subject_df.drop_duplicates(subset=['subject_id'], keep='first')  # subjects will repeat
+
+
+def extract_subjects(classification_locs, save_dir):
     sc = panoptes_to_responses.start_spark('get_subjects')
 
     # load all classifications as RDD

@@ -3,6 +3,8 @@ import json
 import os
 import shutil
 import logging
+import time
+from datetime import datetime, timedelta
 from typing import Any, List, Tuple, TypeVar, Dict
 from functools import lru_cache
 
@@ -110,7 +112,7 @@ def save_classifications(save_dir, previous_dir=None, max_classifications=None, 
         print("No new classifications downloaded!")
 
 
-def get_classifications(save_loc, max_classifications=None, last_id=None, project_id='5733') -> int:
+def get_classifications(save_loc, max_classifications=None, last_id=None, project_id='5733', max_rate_per_sec=15) -> int:
     """Save as we download line-by-line, to avoid memory issues and ensure results are saved.
     
     Args:
@@ -137,17 +139,27 @@ def get_classifications(save_loc, max_classifications=None, last_id=None, projec
     classification_n = 0
     latest_id = 0
     pbar = tqdm(total=max_classifications)
+    
+    min_time = timedelta(seconds=(1./max_rate_per_sec))
     while classification_n < max_classifications:
         try:  # may possibly be requesting the very first classification twice, not clear how - TODO test
+            initial_time = datetime.now()
             classification = classifications.next().raw  # raw is the actual data
 
             # replace subject id with subject information from API
             subject_id = classification['links']['subjects'][0]  # only works for single-subject projects
             del classification['links']['subjects']
-            subject = get_subject(project_id, subject_id) # assume id is unique, and hence only one match is possible
+            subject = get_subject(subject_id) # assume id is unique, and hence only one match is possible
             classification['links']['subject'] = subject.raw
 
             save_classification_to_file(classification, save_loc)
+
+            time_elapsed = datetime.now() - initial_time
+            if time_elapsed < min_time:
+                sleep_seconds = (min_time - time_elapsed).total_seconds() 
+                logging.debug('Sleeping {} seconds'.format(sleep_seconds))
+                time.sleep(sleep_seconds)
+
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
             break
@@ -162,14 +174,9 @@ def get_classifications(save_loc, max_classifications=None, last_id=None, projec
     return latest_id
 
 @lru_cache(maxsize=2**18)
-def get_subject(project_id, subject_id):
-    subjects = Subject.where(
-        scope='project',
-        project_id=project_id,
-        id=subject_id
-    )
-    return subjects.next() # assume id is unique, and hence only one match is possible
-
+def get_subject(subject_id):
+    subject =  Subject.find(subject_id)
+    return subject
 
 
 def save_classification_to_file(classification, save_loc) -> None:
@@ -195,12 +202,13 @@ def save_classification_to_file(classification, save_loc) -> None:
 if __name__ == '__main__':
 
     # save_dir = 'tests/test_examples'
-    save_dir = settings.panoptes_api_json_dir
+    # save_dir = settings.panoptes_api_json_dir
+    save_dir = '/data/repos/zoobot/data/decals/classifications/raw'
     max_classifications = 10000000
 
     previous_dir = save_dir
     # OR
-    manual_last_id = '91178981'  # first DECALS classification
+    # manual_last_id = '91178981'  # first DECALS classification
 
     get_latest_classifications(
         save_dir=save_dir,

@@ -81,14 +81,16 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
 if __name__ == '__main__':
 
     workflow_id = '6122'
-    last_id = '91178981'   # first decals
+    # last_id = '91178981'   # first decals
     # last_id = '157128147'   # april
-    # max_classifications = 1000
-    max_classifications = 1e8
-    # working_dir = '/tmp/working_dir'
-    working_dir = '../zoobot/data/decals/classifications'
-    save_loc = os.path.join(working_dir, 'classifications.csv')
+    last_id = '117640757'  # 750,000 subjects before download timed out
+    max_classifications = 1000
+    working_dir = '/tmp/working_dir'
 
+    # max_classifications = 1e8
+    # working_dir = '../zoobot/data/decals/classifications'
+
+    save_loc = os.path.join(working_dir, 'classifications.csv')
     if os.path.isdir(working_dir):
         shutil.rmtree(working_dir)
     os.mkdir(working_dir)

@@ -77,7 +77,7 @@ def get_id_pairs_of_chunks(chunk_dir, derived=False) -> List[Tuple[int, int]]:
 def get_chunk_files(chunk_dir, derived) -> list:
     candidate_filenames = sorted(os.listdir(chunk_dir))
     # messy coupling with names, but it's quick and effective
-    chunk_filenames = [x for x in candidate_filenames]
+    chunk_filenames = [x for x in candidate_filenames if 'panoptes_api' in x]
     if derived:
          selected_filenames = [x for x in chunk_filenames if 'derived' in x]
     else:
@@ -112,7 +112,7 @@ def save_classifications(save_dir, previous_dir=None, max_classifications=None, 
         print("No new classifications downloaded!")
 
 
-def get_classifications(save_loc, max_classifications=None, last_id=None, project_id='5733', max_rate_per_sec=15) -> int:
+def get_classifications(save_loc, max_classifications=None, last_id=None, project_id='5733', max_rate_per_sec=40) -> int:
     """Save as we download line-by-line, to avoid memory issues and ensure results are saved.
     
     Args:
@@ -175,8 +175,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None, projec
 
 @lru_cache(maxsize=2**18)
 def get_subject(subject_id):
-    subject =  Subject.find(subject_id)
-    return subject
+    return Subject.find(subject_id)
 
 
 def save_classification_to_file(classification, save_loc) -> None:

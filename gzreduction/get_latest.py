@@ -92,6 +92,7 @@ if __name__ == '__main__':
     # last_id = '157128147'   # april
     # last_id = '117640757'  # 750,000 subjects before download timed out
     last_id = '159526481'  # pre-launch full reduction ends here
+    # 160414882 for Tue Apr 16th now, or 160195658 for a few mins of downloading
 
     # for debugging
     max_classifications = 1000

@@ -45,6 +45,8 @@ def preprocess_classifications(
     # load all classifications as RDD
     assert isinstance(classifications_locs, list)
     classification_chunks = [sc.textFile(loc) for loc in classifications_locs]
+    if not classification_chunks:
+        raise ValueError('No chunks found in {}'.format(classifications_locs))
     lines = sc.union(classification_chunks)
 
     # convert to dicts (still held in RDD)
@@ -279,6 +281,7 @@ if __name__ == '__main__':
     
     classification_dir = 'data/raw/classifications/api'
     classification_locs = api_to_json.get_chunk_files(classification_dir, derived=True)
+    assert classification_locs  # must not be empty
 
     save_dir = settings.panoptes_flat_classifications
     # save_dir = 'data/temp'

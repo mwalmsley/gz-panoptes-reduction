@@ -36,7 +36,7 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
         manual_last_id=last_id  # should be the last id used in the last major export (provided to shards)
     )
 
-    # reformat_api_like_exports.derive_chunks(workflow_id, [responses_dir])
+    reformat_api_like_exports.derive_chunks(workflow_id, [responses_dir])
     derived_responses_locs = api_to_json.get_chunk_files(responses_dir, derived=True)
 
     # make flat table of classifications. Basic use-agnostic view. 

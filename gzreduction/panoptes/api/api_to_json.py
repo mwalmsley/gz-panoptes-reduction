@@ -14,7 +14,12 @@ from panoptes_client import Panoptes, Classification, Subject
 
 from gzreduction import settings
 
-ZOONIVERSE_LOGIN_LOC = 'zooniverse_login.json'
+
+# expects auth file in this directory
+ZOONIVERSE_LOGIN_LOC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'zooniverse_login.json')
+if not os.path.exists(ZOONIVERSE_LOGIN_LOC):
+    raise ValueError('No zooniverse auth details at {}'.format(ZOONIVERSE_LOGIN_LOC))
+
 # https://panoptes.docs.apiary.io/#reference/classification/classification-collection/list-all-classifications
 
 

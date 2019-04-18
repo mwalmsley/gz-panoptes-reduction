@@ -18,7 +18,10 @@ from gzreduction.panoptes.api import api_to_json
 def start_spark(app_name):
     os.environ['PYSPARK_PYTHON'] = sys.executable  # path to current interpreter
     appName = app_name  # name to display
-    master = 'local[3]'  # don't run on remote cluster. [*] indicates use all cores.
+    if os.path.isdir('/data/repos'):
+        master = 'local[3]'  # local desktop, 3 cores so I can still work
+    else:
+        master = 'local[*]' # ec2, [*] indicates use all cores.
     conf = SparkConf().setAppName(appName).setMaster(master) 
     return SparkContext(conf=conf)  # this tells spark how to access a cluster
 

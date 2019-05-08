@@ -1,15 +1,35 @@
+import logging
+
 from pyspark.sql import SparkSession
 
-from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf
-from pyspark.sql.types import TimestampType, BooleanType, StringType
+from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf, count
+from pyspark.sql.types import TimestampType, BooleanType, StringType, IntegerType
 
-from gzreduction.panoptes.panoptes_to_responses import sanitise_string, rename_response
-from gzreduction.schemas import dr5_schema
+from gzreduction.panoptes.panoptes_to_responses import sanitise_string
+from gzreduction.schemas.dr5_schema import dr5_schema
+
+
+def get_question(task_id, schema):
+    try:
+        question = schema.get_question_from_raw_name(task_id)
+    except IndexError:
+        logging.critical('Question "{}" not found in schema'.format(task_id))
+        return None
+    return question.name
+
+def get_answer(task_id, cleaned_response, schema):
+    try:
+        question = schema.get_question_from_raw_name(task_id)
+        answer = question.get_answer_from_raw_name(cleaned_response)
+    except IndexError:
+        logging.critical('Answer {} of type {} not found in schema for question {} '.format(
+            cleaned_response, type(cleaned_response), task_id))
+        return None
+    return answer.name
 
 sanitise_string_udf = udf(lambda x: sanitise_string(x), returnType=StringType())  
-rename_response_udf = udf(lambda x: rename_response(x, dr5_schema), returnType=StringType())
-
-import datetime
+get_question_udf = udf(lambda x: get_question(x, dr5_schema), returnType=StringType())
+get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=StringType())
 
 if __name__ == '__main__':
 
@@ -18,43 +38,82 @@ if __name__ == '__main__':
         .appName("hello") \
         .getOrCreate()
 
-    df = spark.read.json("data/raw/classifications/api/derived/panoptes_api_first_96716946_last_97209898.txt")
+    df = spark.read.json("data/raw/classifications/api/derived_panoptes_api_first_156988066_last_157128147.txt")
+    # df = spark.read.json("data/raw/classifications/api/derived_panoptes_api_first_157128147_last_157128227.txt")
 
-    key_df = df.select(
-        'annotations',
-        'classification_id',
-        'subject_id',
-        'user_id',
-        to_timestamp(df['created_at']).alias('created_at_dt')
-        )
+    df = df.withColumn('created_at', to_timestamp(df['created_at']))
 
-    # key_df.createOrReplaceTempView("key_df")
+    start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
+    df = df.filter(df['created_at'] > start_date)
 
-
-    # key_df.printSchema()
-    start_date = to_date(lit('2017-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
-    key_df = key_df.filter(key_df['created_at_dt'] > start_date)
-
-    exploded = key_df.select(
+    exploded = df.select(
         explode('annotations').alias('annotations_struct'),
-         'classification_id')  # doubly nested, need to explode twice
+        'created_at',
+        'user_id',
+        'subject_id',
+        'classification_id'
+    )
     flattened = exploded.select(
         'annotations_struct.*',
+        'created_at',
+        'user_id',
+        'subject_id',
         'classification_id'
         )
-
-    flattened.printSchema()
-    # flattened.withColumn('multiple_choice_bool', flattened['multiple_choice'].cast(BooleanType()))
 
     # filter for multiple choice and None
     flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
     flattened = flattened.filter(flattened['value'] != 'No')
-    
-    flattened.show()
 
     # https://docs.databricks.com/spark/latest/spark-sql/udf-python.html
-    flattene = flattened.select(sanitise_string_udf(flattened['value'])).alias('cleaned_response')
-    # TODO filter again to avoid nulls
-    # flattened.select(rename_response_udf(flattened['cleaned_response'])).alias('response')
+    flattened = flattened.withColumn('cleaned_response', sanitise_string_udf(flattened['value']))
+    # TODO filter again to avoid nulls?
+    flattened = flattened.withColumn(
+        'question',
+        get_question_udf(
+            flattened['task_id']
+        )
+    )
+    flattened = flattened.withColumn(
+        'response',
+        get_answer_udf(
+            flattened['task_id'],
+            flattened['cleaned_response']
+        )
+    )
 
-    flattened.show()  # may need another filter to remove any newly-null values
+    flat_view = flattened.select(
+        'created_at', 'user_id', 'subject_id', 'classification_id', 'question', 'response'
+    )
+    flat_view.show()
+    # https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=save#pyspark.sql.DataFrameWriter
+    # flat_view.write.save(
+    #     'temp_flat.csv', 
+    #     mode='overwrite',
+    #     format='csv')
+
+    join_string_udf = udf(lambda x, y: x + '_' + y)
+    
+    flat_view = flat_view.withColumn('question_response', join_string_udf('question', 'response'))
+
+    aggregated = flat_view.groupBy('subject_id').pivot('question_response').agg(count('question_response'))
+    aggregated = aggregated.na.fill(0)
+    # aggregated = flat_view.groupBy('subject_id', 'question', 'response').agg(count('response'))
+
+    # join_string_udf = udf(lambda x, y: x + '_' + y)
+    # aggregated = aggregated.withColumn('question_response', join_string_udf('question', 'response'))
+    aggregated.show()
+
+    aggregated_loc = 'temp_agg.csv'
+
+    # fits in memory: 
+    # aggregated.repartition(1).write.csv(path=aggregated_loc, mode="append", header="true")
+    aggregated.toPandas().to_csv(aggregated_loc)
+
+    # doesn't fit in memory:
+    # aggregated.write.save(
+    #     aggregated_loc,
+    #     mode='overwrite',
+    #     format='csv')
+    
+    # TODO: calculate total votes by question

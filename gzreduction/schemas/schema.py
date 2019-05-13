@@ -67,7 +67,7 @@ class Question(object):
         return [answer.raw_name for answer in self.answers]
 
     def get_count_column(self, answer):
-        return self.name + '_' + answer.name
+        return self.name + '_' + answer.name  # leakage, must match join udf
 
     def get_answer_from_count_column(self, count_col):
         # could be stored for speed

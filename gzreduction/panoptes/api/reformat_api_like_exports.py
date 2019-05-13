@@ -1,13 +1,19 @@
 import os
+import time
+from functools import lru_cache
 from collections import namedtuple
 from typing import List, Dict
 from datetime import datetime
 import json
+import ast
 from typing import List
 
 import requests
 import pandas as pd
 from panoptes_client import Panoptes
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import udf, split, to_json, from_json
+from pyspark.sql.types import TimestampType, BooleanType, StringType, IntegerType, ArrayType, StructType, StructField
 
 from gzreduction.panoptes.api import api_to_json
 
@@ -34,15 +40,7 @@ WorkflowVersion = namedtuple('WorkflowVersion', ['major', 'minor'])
 def read_workflow_versions_from_decimal_str(major_minor_decimal_str):
     assert isinstance(major_minor_decimal_str, str)
     return WorkflowVersion(*major_minor_decimal_str.split('.'))
-
-
-# def get_workflow_contents(workflow_id, version_id):
-#     headers =  {
-#     'Accept': 'application/vnd.api+json; version=1',
-#     'Content-Type': 'application/json'
-#     }
-#     url = r'https://panoptes.zooniverse.org/api/workflow_versions/{}'.format(version_id)
-#     return requests.get(url, headers=headers)
+read_workflow_versions_from_decimal_str_udf = udf(read_workflow_versions_from_decimal_str)
 
 
 def get_all_workflow_versions(workflow_id):
@@ -82,26 +80,23 @@ def get_page_of_versions(workflow_id, page, auth_token):
 def make_workflow_version_df(workflow_versions):
     # pandas handles json format easily :)
     df = pd.DataFrame(data=workflow_versions)
-    df['major_number'] = df['major_number'].astype(str)
-    df['minor_number'] = df['minor_number'].astype(str)
+    df['workflow_major_version'] = df['major_number'].astype(str)
+    df['workflow_minor_version'] = df['minor_number'].astype(str)
+    del df['major_number']
+    del df['minor_number']
     return df
 
-def find_matching_version(raw_classification, workflow_df):
-    version_id_pair = get_version_id_pair(raw_classification)
+
+def find_matching_version(major_version, minor_version, workflow_df):
+    # version_id_pair = get_version_id_pair(raw_classification)
     matching_workflows = workflow_df[
-        (workflow_df['major_number'] == version_id_pair.major) & (workflow_df['minor_number'] == version_id_pair.minor)
+        (workflow_df['workflow_major_version'] == major_version) & (workflow_df['workflow_minor_version'] == minor_version)
         ]
     assert len(matching_workflows) == 1
     return matching_workflows.squeeze().to_dict()
 
-def get_version_id_pair(raw_classification: Dict):
-    decimal_version_id = raw_classification['metadata']['workflow_version']
-    version_id_pair = read_workflow_versions_from_decimal_str(decimal_version_id)
-    return version_id_pair
 
-def insert_workflow_contents(raw_classification: Dict, workflow: Dict) -> Dict:
-    classification = raw_classification.copy()  # will modify by reference below
-    annotations = classification['annotations'] # list of task/answer (index) dict pairs
+def insert_workflow_contents(annotations, workflow):
     workflow_strings = workflow['strings'] # dict of informative strings for each task or answer
     for annotation_n in range(len(annotations)):  # indexing to avoid modifying the iterator
         task_value_pair = annotations[annotation_n]
@@ -112,6 +107,12 @@ def insert_workflow_contents(raw_classification: Dict, workflow: Dict) -> Dict:
         # get the strings
         #e.g.T0.question, T0.answers.0.label, 
         task_label = workflow_strings['{}.question'.format(task_id)]
+        if isinstance(value_index, str):
+            try:
+                value_index = int(value_index)
+            except ValueError:
+                value_index = ast.literal_eval(value_index)
+
         if isinstance(value_index, int):
             multiple_choice = False
             value_string = workflow_strings['{}.answers.{}.label'.format(task_id, value_index)]
@@ -122,80 +123,115 @@ def insert_workflow_contents(raw_classification: Dict, workflow: Dict) -> Dict:
             multiple_choice = None
             value_string = None
         else:
-            print(task_id, task_label)
-            raise ValueError('value index not recognised: {}'.format(value_index))
+            # raise ValueError(task_id, task_label)
+            raise ValueError('value index not recognised: {} {}'.format(type(value_index), value_index))
         # modify task/value pairs to include both indices and strings
         task_value_pair['task_label'] = task_label
         task_value_pair['task_id'] = task_id
         task_value_pair['value'] = value_string
         task_value_pair['value_index'] = value_index
         task_value_pair['multiple_choice'] = multiple_choice
-    return classification  # modified
+    return annotations  # modified by reference
 
 
-def rename_metadata_like_exports(classification: Dict) -> Dict:
-    classification = clarify_workflow_version(classification)  # requires links attribute
-    classification['classification_id'] = classification['id']
-    del classification['id']
-    classification['project_id'] = classification['links']['project']
-    classification['user_id'] = classification['links']['user']
-    classification['workflow_id'] = classification['links']['workflow']
 
-    # assume subject has been added via previous API call
-    subject = classification['links']['subject']
-    classification['subject_id'] = subject['id']
-
-    return classification
+def rename_metadata_like_exports(df):
+    df = df.withColumnRenamed('id', 'classification_id')  # existing, new
+    df = df.withColumn('project_id', df['links']['project'])
+    df = df.withColumn('user_id', df['links']['user'])
+    df = df.withColumn('workflow_id', df['links']['workflow'])
+    df = df.withColumn('subject_id', df['links']['subject']['id'])
+    df = df.drop('links')
+    return df
 
 
-def clarify_workflow_version(input_classification: Dict):
-    classification = input_classification.copy()  # avoid modify-by-reference
-    version_id_pair = get_version_id_pair(classification)
-    classification['workflow_major_version'] = version_id_pair.major
-    classification['workflow_minor_version'] = version_id_pair.minor
-    return classification
+def clarify_workflow_version(df):
+    version_id_pair = split(df['metadata']['workflow_version'], '\\.')  # need to escape the period
+    df = df.withColumn('workflow_major_version', version_id_pair.getItem(0))
+    df = df.withColumn('workflow_minor_version', version_id_pair.getItem(1))
+    return df
 
 
-def derive_classification(classification, workflows_df):
-    classification = clarify_workflow_version(classification)
-    classification = rename_metadata_like_exports(classification)
-    workflow = find_matching_version(classification, workflows_df)
-    classification = insert_workflow_contents(classification, workflow)
-    return classification
+def derive_directories_with_spark(dirs, output_dir, workflows, mode='batch'):
+
+    spark = SparkSession \
+        .builder \
+        .appName("derive_directories") \
+        .getOrCreate()
+
+    # infer schema from existing file
+    tiny_loc = "data/examples/panoptes_raw.txt"
+    schema = spark.read.json(tiny_loc).schema
+
+    if mode == 'stream':
+        df = spark.readStream.json(dirs, schema=schema)
+    else:
+        df = spark.read.json(dirs, schema=schema)
+
+    df = df.filter(df['links']['workflow'] == workflow_id)
+    df = clarify_workflow_version(df)
+    df = rename_metadata_like_exports(df)
+
+    workflows_str = workflows.to_json()
+    def match_and_insert_workflow(annotations, major_version, minor_version, workflows_str):
+        workflows = pd.DataFrame(data=json.loads(workflows_str))
+        workflow = find_matching_version(major_version, minor_version, workflows)
+        annotations_dict = json.loads(annotations)
+        updated_annotations_dict = insert_workflow_contents(annotations_dict, workflow)
+        return json.dumps(updated_annotations_dict)
+    match_and_insert_workflow_udf = udf(
+        lambda x, y, z: match_and_insert_workflow(x, y, z, workflows_str),
+        StringType()
+    )
+
+    # apparently can't pass struct as udf argument, need to use as string
+    df = df.withColumn('annotations', to_json(df['annotations']))  
+    df = df.withColumn(
+        'annotations',
+        match_and_insert_workflow_udf(
+            df['annotations'],
+            df['workflow_major_version'],
+            df['workflow_minor_version']
+        )
+    )
+
+   # parse annotations back out again (using the new schema, of course)
+    annotations_schema = ArrayType(StructType([
+        StructField("task", StringType(), False),
+        StructField("value", StringType(), False),
+        StructField("task_label", StringType(), False),
+        StructField("task_id", StringType(), False),
+        StructField("value_index", StringType(), False),
+        StructField("multiple_choice", BooleanType(), False)
+    ]))
+    df = df.withColumn('annotations', from_json(df['annotations'], schema=annotations_schema))
 
 
-def derive_chunk(raw_loc, workflow_id, workflows_df):
-    raw_dir, raw_name = os.path.split(raw_loc)
-    # place derived file in same dir, with 'derived_' prepended to original name
-    save_loc = os.path.join(raw_dir, 'derived_' + raw_name)
-    with open(raw_loc, 'r') as read_f:
-        with open(save_loc, 'w') as write_f:
-            while True:
-                line = read_f.readline()
-                if not line:
-                    break
-                classification = json.loads(line)
-                if classification['links']['workflow'] == workflow_id:
-                    derived_classification = derive_classification(classification, workflows_df)
-                    json.dump(derived_classification, write_f)
-                    write_f.write('\n')
+    if mode == 'stream':
+        query = df.writeStream \
+            .outputMode('append') \
+            .option('checkpointLocation', 'data/streaming/derived_checkpoints') \
+            .trigger(once=True) \
+            .start(path=output_dir, format='json')
+        print('Ready to stream')
+        while True:
+            time.sleep(0.1)
+            if query.status['isDataAvailable']:
+                print(datetime.now(), query.status['message'])
+    else:
+        df.show()
+        df.write.save(output_dir, format='json', mode='overwrite')
 
-
-def derive_chunks(workflow_id: str, raw_classification_dirs: List):
-    assert isinstance(raw_classification_dirs, list)
+def derive_chunks(workflow_id: str, raw_classification_dir: str, output_dir: str, mode: str):
+    assert isinstance(raw_classification_dirs, str)
 
     workflow_versions = get_all_workflow_versions(workflow_id)
-    workflows_df = make_workflow_version_df(workflow_versions)
+    workflows_pdf = make_workflow_version_df(workflow_versions)
 
-    raw_classification_locs = []
-    for raw_dir in raw_classification_dirs:
-        raw_classification_locs.extend(api_to_json.get_chunk_files(raw_dir, derived=False))
-
-    for raw_loc in raw_classification_locs:
-        derive_chunk(raw_loc, workflow_id, workflows_df)
+    derive_directories_with_spark(raw_classification_dirs, output_dir, workflows_pdf, mode=mode)
 
 if __name__ == '__main__':
 
     workflow_id = '6122'  # GZ decals workflow
-    raw_classification_dirs = ['data/raw/classifications/api']
-    derive_chunks(workflow_id, raw_classification_dirs)
+    raw_classification_dirs = 'data/streaming/input'
+    derive_chunks(workflow_id, raw_classification_dirs, 'data/streaming/derived_output', mode='stream')

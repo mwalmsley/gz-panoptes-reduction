@@ -30,3 +30,4 @@ auth_token.txt
 data/predictions
 data/preprocessed
 data/votes
+data/streaming

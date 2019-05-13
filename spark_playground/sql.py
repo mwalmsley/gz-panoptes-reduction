@@ -1,4 +1,7 @@
 import logging
+import time
+import datetime
+import functools
 
 from pyspark.sql import SparkSession
 
@@ -31,15 +34,7 @@ sanitise_string_udf = udf(lambda x: sanitise_string(x), returnType=StringType())
 get_question_udf = udf(lambda x: get_question(x, dr5_schema), returnType=StringType())
 get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=StringType())
 
-if __name__ == '__main__':
-
-    spark = SparkSession \
-        .builder \
-        .appName("hello") \
-        .getOrCreate()
-
-    df = spark.read.json("data/raw/classifications/api/derived_panoptes_api_first_156988066_last_157128147.txt")
-    # df = spark.read.json("data/raw/classifications/api/derived_panoptes_api_first_157128147_last_157128227.txt")
+def api_df_to_responses(df):
 
     df = df.withColumn('created_at', to_timestamp(df['created_at']))
 
@@ -85,35 +80,88 @@ if __name__ == '__main__':
     flat_view = flattened.select(
         'created_at', 'user_id', 'subject_id', 'classification_id', 'question', 'response'
     )
-    flat_view.show()
+    # flat_view.show()
     # https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=save#pyspark.sql.DataFrameWriter
     # flat_view.write.save(
     #     'temp_flat.csv', 
     #     mode='overwrite',
     #     format='csv')
+    return flat_view
 
+
+def responses_to_reduced_votes(flat_df):
+
+    # aggregate by creating question_response pairs, grouping, pivoting, and summing
     join_string_udf = udf(lambda x, y: x + '_' + y)
+    flat_df = flat_df.withColumn('question_response', join_string_udf('question', 'response'))
+    df = flat_df.groupBy('subject_id').pivot('question_response').agg(count('question_response'))
+    df = df.na.fill(0)
+
+    # add any missing question_response
+    initial_cols = df.schema.names
+    for col in dr5_schema.get_count_columns():
+        if col not in initial_cols:  # not created in pivot as no examples given
+            df = df.withColumn(col, lit(0))  # create, fill with 0's
     
-    flat_view = flat_view.withColumn('question_response', join_string_udf('question', 'response'))
+    for col in dr5_schema.get_count_columns():
+        assert col in df.schema.names
 
-    aggregated = flat_view.groupBy('subject_id').pivot('question_response').agg(count('question_response'))
-    aggregated = aggregated.na.fill(0)
-    # aggregated = flat_view.groupBy('subject_id', 'question', 'response').agg(count('response'))
+    # calculate total responses per question
+    for question in dr5_schema.questions:
+        df = df.withColumn(
+            question.total_votes, 
+            functools.reduce(lambda x, y: x + y, [df[col] for col in question.get_count_columns()])
+        )
 
-    # join_string_udf = udf(lambda x, y: x + '_' + y)
-    # aggregated = aggregated.withColumn('question_response', join_string_udf('question', 'response'))
-    aggregated.show()
+    # df_loc = 'temp_agg.csv'
 
-    aggregated_loc = 'temp_agg.csv'
+    # if fits in memory: 
+    # df.repartition(1).write.csv(path=df_loc, mode="append", header="true")
+    # df.toPandas().to_csv(df_loc)
 
-    # fits in memory: 
-    # aggregated.repartition(1).write.csv(path=aggregated_loc, mode="append", header="true")
-    aggregated.toPandas().to_csv(aggregated_loc)
-
-    # doesn't fit in memory:
-    # aggregated.write.save(
-    #     aggregated_loc,
+    # if doesn't fit in memory:
+    # df.write.save(
+    #     df_loc,
     #     mode='overwrite',
     #     format='csv')
+
+    return df
+
+
+
+
+if __name__ == '__main__':
+
+    spark = SparkSession \
+        .builder \
+        .appName("hello") \
+        .getOrCreate()
+
+    # infer schema from existing file
+    tiny_loc = "data/raw/classifications/api/derived_panoptes_api_first_156988066_last_157128147.txt"
+    schema = spark.read.json(tiny_loc).schema
+    # df = spark.read.json("data/raw/classifications/api/derived_panoptes_api_first_157128147_last_157128227.txt")
+
+
+    # streaming mode
+
+    df = spark.readStream.json('data/streaming/derived_output', schema=schema)
+    flat_df = api_df_to_responses(df)
+
+    query = flat_df.writeStream \
+        .outputMode('append') \
+        .option('checkpointLocation', 'data/streaming/flat_checkpoints') \
+        .start(path='data/streaming/flat_output', format='json')
     
-    # TODO: calculate total votes by question
+    while True:
+        time.sleep(0.1)
+        if query.status['isDataAvailable']:
+            print(datetime.datetime.now(), query.status['message'])
+
+    spark.streams.awaitAnyTermination()
+
+    # batch mode
+
+
+    # aggregated_df = responses_to_reduced_votes(flat_df)
+    # flat_df.awaitTermination()

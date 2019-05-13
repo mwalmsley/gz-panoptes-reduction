@@ -207,18 +207,21 @@ if __name__ == '__main__':
 
     # save_dir = 'tests/test_examples'
     # save_dir = settings.panoptes_api_json_dir
-    save_dir = '/data/repos/zoobot/data/decals/classifications/raw'
-    max_classifications = 10000000
+    # save_dir = '/data/repos/zoobot/data/decals/classifications/raw'
+    save_dir = 'data/streaming/input'
+    max_classifications = 300
 
     previous_dir = save_dir
+    manual_last_id = None
     # OR
+    # previous_dir = None
     # manual_last_id = '91178981'  # first DECALS classification
 
     get_latest_classifications(
         save_dir=save_dir,
         previous_dir=previous_dir,
         max_classifications=max_classifications,
-        manual_last_id=None
+        manual_last_id=manual_last_id
     )
 
 

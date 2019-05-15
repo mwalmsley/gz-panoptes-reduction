@@ -102,8 +102,12 @@ def insert_workflow_contents(annotations, workflow):
         task_value_pair = annotations[annotation_n]
         # get the indices
         # task e.g. T0, value e.g. 1 (indices)
-        task_id = task_value_pair['task']
-        value_index = task_value_pair['value']
+        try:
+            task_id = task_value_pair['task']
+            value_index = task_value_pair['value']
+        except KeyError:
+            return None  # anything missing these is a bad classification
+            # raise KeyError(task_value_pair, annotations)
         # get the strings
         #e.g.T0.question, T0.answers.0.label, 
         task_label = workflow_strings['{}.question'.format(task_id)]
@@ -152,12 +156,13 @@ def clarify_workflow_version(df):
     return df
 
 
-def derive_directories_with_spark(dirs, output_dir, workflows, mode='batch'):
+def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode='batch', print_output=False, spark=None):
 
-    spark = SparkSession \
-        .builder \
-        .appName("derive_directories") \
-        .getOrCreate()
+    if not spark:
+        spark = SparkSession \
+            .builder \
+            .appName("derive_directories") \
+            .getOrCreate()
 
     # infer schema from existing file
     tiny_loc = "data/examples/panoptes_raw.txt"
@@ -210,28 +215,29 @@ def derive_directories_with_spark(dirs, output_dir, workflows, mode='batch'):
     if mode == 'stream':
         query = df.writeStream \
             .outputMode('append') \
-            .option('checkpointLocation', 'data/streaming/derived_checkpoints') \
-            .trigger(once=True) \
+            .option('checkpointLocation', os.path.join(output_dir, 'checkpoints')) \
             .start(path=output_dir, format='json')
-        print('Ready to stream')
-        while True:
-            time.sleep(0.1)
-            if query.status['isDataAvailable']:
-                print(datetime.now(), query.status['message'])
+        print('Derived data ready to stream')
+        if print_output:
+            while True:
+                time.sleep(0.1)
+                if query.status['isDataAvailable']:
+                    print(datetime.now(), query.status['message'])
     else:
         df.show()
         df.write.save(output_dir, format='json', mode='overwrite')
 
-def derive_chunks(workflow_id: str, raw_classification_dir: str, output_dir: str, mode: str):
-    assert isinstance(raw_classification_dirs, str)
+def derive_chunks(workflow_id: str, raw_classification_dir: str, output_dir: str, mode: str, print_status: bool, spark):
+    assert isinstance(raw_classification_dir, str)
 
     workflow_versions = get_all_workflow_versions(workflow_id)
     workflows_pdf = make_workflow_version_df(workflow_versions)
 
-    derive_directories_with_spark(raw_classification_dirs, output_dir, workflows_pdf, mode=mode)
+    derive_directories_with_spark(raw_classification_dir, output_dir, workflows_pdf, workflow_id, mode, print_status)
 
-if __name__ == '__main__':
 
-    workflow_id = '6122'  # GZ decals workflow
-    raw_classification_dirs = 'data/streaming/input'
-    derive_chunks(workflow_id, raw_classification_dirs, 'data/streaming/derived_output', mode='stream')
+# if __name__ == '__main__':
+
+#     workflow_id = '6122'  # GZ decals workflow
+#     raw_classification_dirs = 'data/streaming/input'
+#     derive_chunks(workflow_id, raw_classification_dirs, 'data/streaming/derived_output', mode='stream', blocking=True, print_status=True)

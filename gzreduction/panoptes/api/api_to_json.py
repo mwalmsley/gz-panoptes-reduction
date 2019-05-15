@@ -7,12 +7,14 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, List, Tuple, TypeVar, Dict
 from functools import lru_cache
+from itertools import count
 
 import numpy as np
 from tqdm import tqdm
 from panoptes_client import Panoptes, Classification, Subject
 
 from gzreduction import settings
+from gzreduction.panoptes.api import get_chunk_ids
 
 
 # expects auth file in this directory
@@ -40,95 +42,30 @@ def get_latest_classifications(save_dir, max_classifications, previous_dir=None,
     """
     assert save_dir
     if manual_last_id is None:
-        last_id = read_last_id(save_dir)
+        last_id = get_chunk_ids.read_last_id(save_dir)
     else:
         assert previous_dir is None
         last_id = manual_last_id
 
-    save_classifications(
+    get_classifications(
         save_dir=save_dir, 
-        max_classifications=max_classifications, 
-        previous_dir=previous_dir,
+        max_classifications=max_classifications,
         last_id=last_id
     )
 
-
-def read_last_id(save_dir) -> Any:
-    id_pairs = get_id_pairs_of_chunks(save_dir)
-    if id_pairs:
-        latest_id = np.max(id_pairs)
-    else:
-        latest_id = 0
-    return latest_id
-
-
-def get_id_pairs_of_chunks(chunk_dir, derived=False) -> List[Tuple[int, int]]:
-    """
-    Get first and last ids of all chunks in chunk_dir
-    
-    Args:
-        chunk_dir (str): directory to search for chunks
-    
-    Returns:
-        list: of form [(first_id, last_id), ...]
-    """
-    files = get_chunk_files(chunk_dir, derived=derived)
-    first_ids = [int(f.split('_')[-3]) for f in files]
-    last_ids = [int(f.split('_')[-1].strip('.txt')) for f in files]
-    id_pairs = list(zip(first_ids, last_ids))
-    return id_pairs
-
-
-def get_chunk_files(chunk_dir, derived) -> list:
-    candidate_filenames = sorted(os.listdir(chunk_dir))
-    # messy coupling with names, but it's quick and effective
-    chunk_filenames = [x for x in candidate_filenames if 'panoptes_api' in x]
-    if derived:
-         selected_filenames = [x for x in chunk_filenames if 'derived' in x]
-    else:
-        selected_filenames = [x for x in chunk_filenames if not 'derived' in x]
-    chunk_locs = [os.path.join(chunk_dir, name) for name in selected_filenames]
-    return chunk_locs
-
-
-def save_classifications(save_dir, previous_dir=None, max_classifications=None, last_id=0) -> None:
-    """
-    Request responses from the API, starting from last_id (default 0).
-    Initially save responses to a temporary file, and then rename once the download is complete and last_id is known.
-    
-    Args:
-        save_dir (str): directory into which to save new chunk
-        previous_dir (str, optional): Defaults to None. [description]
-        max_classifications (int, optional): Defaults to None. [description]
-        last_id (int, optional): Defaults to 0. [description]
-    """
-    # download here until download is complete, then rename according to last id in download
-    temp_loc = os.path.join(save_dir, 'panoptes_api_download_in_progress.txt')
-    new_last_id = get_classifications(temp_loc, max_classifications, last_id)
-    if os.path.exists(temp_loc):
-        save_name = 'panoptes_api_first_{}_last_{}.txt'.format(last_id, new_last_id)
-        save_loc = os.path.join(save_dir, save_name)
-        # overwrite any existing file!
-        if os.path.exists(save_loc):
-            os.remove(save_loc)
-        shutil.move(temp_loc, save_loc)
-    else:
-        logging.warning("No new classifications downloaded!")
-        print("No new classifications downloaded!")
-
-
-def get_classifications(save_loc, max_classifications=None, last_id=None, project_id='5733', max_rate_per_sec=40) -> int:
+def get_classifications(save_dir, max_classifications=None, last_id=None, project_id='5733', max_rate_per_sec=40, per_file=5000) -> int:
     """Save as we download line-by-line, to avoid memory issues and ensure results are saved.
     
     Args:
-        save_loc ([type]): [description]
+        save_dir ([type]): [description]
         max_classifications ([type], optional): Defaults to None. [description]
         last_id ([type], optional): Defaults to None. [description]
     
     Returns:
         int: last id downloaded
     """
-    assert save_loc
+    assert save_dir
+    save_loc = get_save_loc(save_dir)  # will be updated every 10k classifications, to trigger Spark
 
     with open(ZOONIVERSE_LOGIN_LOC, 'r') as f:
         zooniverse_login = json.load(f)
@@ -146,6 +83,7 @@ def get_classifications(save_loc, max_classifications=None, last_id=None, projec
     pbar = tqdm(total=max_classifications)
     
     min_time = timedelta(seconds=(1./max_rate_per_sec))
+    classifications_in_file = 0
     while classification_n < max_classifications:
         try:  # may possibly be requesting the very first classification twice, not clear how - TODO test
             initial_time = datetime.now()
@@ -158,6 +96,11 @@ def get_classifications(save_loc, max_classifications=None, last_id=None, projec
             classification['links']['subject'] = subject.raw
 
             save_classification_to_file(classification, save_loc)
+
+            classifications_in_file += 1
+            if classifications_in_file >= per_file:
+                save_loc = get_save_loc(save_dir)
+                classifications_in_file = 0
 
             time_elapsed = datetime.now() - initial_time
             if time_elapsed < min_time:
@@ -182,10 +125,10 @@ def get_classifications(save_loc, max_classifications=None, last_id=None, projec
 def get_subject(subject_id):
     return Subject.find(subject_id)
 
-
 def save_classification_to_file(classification, save_loc) -> None:
     """Save the API response to a file of json's seperated by newlines.
     If no such file exists, start one.
+    Atomic for Spark (saves each classification one at a time)
     
     Args:
         classification ([type]): [description]
@@ -193,6 +136,7 @@ def save_classification_to_file(classification, save_loc) -> None:
     """
     assert classification
     assert save_loc
+
     if os.path.exists(save_loc):
         append_write = 'a' # append if already exists
     else:
@@ -203,13 +147,17 @@ def save_classification_to_file(classification, save_loc) -> None:
         f.write('\n')    
 
 
+def get_save_loc(save_dir):
+    # decimal in filename causes problems, this is accurate enough (in seconds)
+    return os.path.join(save_dir, 'panoptes_api_{}'.format(int(time.time()))) 
+
 if __name__ == '__main__':
 
     # save_dir = 'tests/test_examples'
     # save_dir = settings.panoptes_api_json_dir
     # save_dir = '/data/repos/zoobot/data/decals/classifications/raw'
     save_dir = 'data/streaming/input'
-    max_classifications = 300
+    max_classifications = 500
 
     previous_dir = save_dir
     manual_last_id = None

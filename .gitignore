@@ -31,3 +31,4 @@ data/predictions
 data/preprocessed
 data/votes
 data/streaming
+temp/*

@@ -36,7 +36,6 @@ class Volunteers():
         if blocking:
             listener.join() # wait for all Panoptes API calls to download before returning
             queries = self.spark.streams.active  # list all the streams
-            print([q.name for q in queries])
             while any([q.status['isDataAvailable'] for q in queries]):
                 print('{} - waiting to process downloaded data'.format(time.time()))
                 time.sleep(10)

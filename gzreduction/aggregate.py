@@ -36,6 +36,15 @@ def responses_to_reduced_votes(flat_df):
             functools.reduce(lambda x, y: x + y, [df[col] for col in question.get_count_columns()])
         )
 
+    # calculate fractions per answer
+    for question in dr5_schema.questions:
+        for answer in question.answers:
+            df = df.withColumn(
+                question.get_fraction_column(answer),  # TODO should refactor this to answer.fraction etc in schema?
+                df[question.get_count_column(answer)] / df[question.total_votes]  # may give nans?
+            )
+        # df = df.fillna(0)  # some total vote columns will be 0, but this doesn't seem to cause na?
+
     return df
 
 

@@ -101,7 +101,9 @@ def stream(input_dir, output_dir, print_status=False, spark=None):
     this_dir = os.path.dirname(os.path.realpath(__file__))
     # infer schema from existing file
     example_loc = os.path.join(this_dir, '../data/examples/panoptes_derived.json')
+    assert os.path.exists(example_loc)
     schema = spark.read.json(example_loc).schema
+    print(schema)
 
     df = spark.readStream.json(input_dir, schema=schema)
     flat_df = api_df_to_responses(df)

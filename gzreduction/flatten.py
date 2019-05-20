@@ -98,8 +98,9 @@ def stream(input_dir, output_dir, print_status=False, spark=None):
         .appName("shared") \
         .getOrCreate()
 
+    this_dir = os.path.dirname(os.path.realpath(__file__))
     # infer schema from existing file
-    example_loc = "data/raw/classifications/api/derived_panoptes_api_first_156988066_last_157128147.txt"
+    example_loc = os.path.join(this_dir, '../data/examples/panoptes_derived.json')
     schema = spark.read.json(example_loc).schema
 
     df = spark.readStream.json(input_dir, schema=schema)

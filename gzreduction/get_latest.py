@@ -67,6 +67,13 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
     )
     del panoptes_votes
 
+    join_subjects_and_aggregated(derived_dir, predictions_loc):
+
+    return df
+
+
+def join_subjects_and_aggregated(derived_dir, aggregated_loc):
+
     # similarly for subjects
     subjects = panoptes_to_subjects.get_subjects(derived_responses_locs, subject_dir)
     logging.info('Subjects: {}'.format(len(subjects)))
@@ -75,17 +82,15 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
     assert not any(subjects.duplicated(subset=['subject_id']))
 
     # join predictions with subjects
-    predictions = pd.read_csv(predictions_loc)
+    predictions = pd.read_csv(aggregated_loc)
     logging.info('Predictions: {}'.format(len(predictions)))
     
     df = pd.merge(predictions, subjects, on='subject_id', how='inner')
 
-    return df
 
 
 
 if __name__ == '__main__':
-
 
     workflow_id = '6122'
     # last_id = '91178981'   # first decals

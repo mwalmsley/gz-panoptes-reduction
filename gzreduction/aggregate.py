@@ -5,7 +5,6 @@ import datetime
 import functools
 
 from pyspark.sql import SparkSession
-
 from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf, count
 from pyspark.sql.types import TimestampType, BooleanType, StringType, IntegerType
 

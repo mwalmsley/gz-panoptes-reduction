@@ -1,17 +1,22 @@
 import os
+import logging
 import time
+import datetime
 import shutil
+import json
 from multiprocessing import Process
 
+import pandas as pd
 from pyspark.sql import SparkSession
 
 from gzreduction.panoptes.api import api_to_json, reformat_api_like_exports
+from gzreduction.panoptes import panoptes_to_subjects
 from gzreduction import flatten, aggregate
 
 
 class Volunteers():
 
-    def __init__(self, working_dir, max_classifications):
+    def __init__(self, working_dir, workflow_id, max_classifications):
         self.raw_dir = os.path.join(working_dir, 'raw')  
         self.derived_dir = os.path.join(working_dir, 'derived')  # can hopefully put checkpoints in same directory: x/checkpoints
         self.flat_dir = os.path.join(working_dir, 'flat')
@@ -19,8 +24,14 @@ class Volunteers():
             if not os.path.isdir(directory):
                 os.mkdir(directory)
 
-        self.max_classifications = max_classifications  # for debugging
+        self.metadata_loc = os.path.join(working_dir, 'metadata.json')
+        self.aggregated_loc = os.path.join(working_dir, 'aggregated.csv')
+        self.subject_loc = os.path.join(working_dir, 'subjects.csv')
+        self.classification_loc = os.path.join(working_dir, 'classifications.csv')
 
+        self.workflow_id = workflow_id
+        self.max_classifications = max_classifications  # for debugging
+        # if on ec2, ...
         self.spark = SparkSession \
             .builder \
             .master('local[3]') \
@@ -29,7 +40,7 @@ class Volunteers():
 
     def listen(self, blocking=False):
         # start streams first to be ready for new files
-        start_derived_stream(self.raw_dir, self.derived_dir, self.spark)
+        start_derived_stream(self.raw_dir, self.derived_dir, self.workflow_id, self.spark)
         start_flat_stream(self.derived_dir, self.flat_dir, self.spark)
         # start making new files
         listener = start_panoptes_listener(self.raw_dir, self.max_classifications)  # not spark  TEMP no new classifications
@@ -41,16 +52,57 @@ class Volunteers():
                 time.sleep(10)
 
     def aggregate(self):
-        return aggregate.run(self.flat_dir, self.spark)
-        # if fits in memory: 
-        # df.repartition(1).write.csv(path=df_loc, mode="append", header="true")
-        # return df.toPandas()
+        return aggregate.run(self.flat_dir, self.spark)  # returns pandas df
 
-        # if doesn't fit in memory:
-        # df.write.save(
-        #     df_loc,
-        #     mode='overwrite',
-        #     format='csv')
+    # Main API access point, from e.g. Zoobot
+    def get_all_classifications(self, max_age=datetime.timedelta(hours=1)):
+        if max_age:  # if made None, never read
+            if os.path.exists(self.metadata_loc):
+                metadata = json.load(self.metadata_loc)
+                classification_age = datetime.datetime.now() - metadata['last_run']
+                if  classification_age < max_age:
+                    logging.warning('Classification age {} within allowed max age {}, reading from disk'.format(classification_age, max_age))
+                    return pd.read_csv(metadata['classification_loc'])
+
+        self.listen(blocking=True)
+        aggregated_df = self.aggregate()
+        subject_df = self.get_subjects()
+        classification_df = join_subjects_and_aggregated(subject_df, aggregated_df)
+
+        aggregated_df.to_csv(self.aggregated_loc, index=False)
+        subject_df.to_csv(self.subject_loc, index=False)
+        classification_df.to_csv(self.classification_loc, index=False)
+        with open(self.metadata_loc, 'w') as f:
+            json.dump(
+                {
+                    'last_run': str(datetime.datetime.now()),
+                    'classification_loc': self.classification_loc,
+                    'aggregated_loc': self.aggregated_loc,
+                    'subject_loc': self.subject_loc
+                },
+                f
+            )
+        
+        return classification_df
+
+        
+
+    def get_subjects(self):
+        subjects = panoptes_to_subjects.run(
+            self.raw_dir,
+            self.workflow_id,
+            self.spark)
+        logging.info('Subjects: {}'.format(len(subjects)))
+        assert not any(subjects.duplicated(subset=['subject_id']))
+        subjects.to_csv(self.subject_loc, index=False)  # for debugging
+        return subjects
+
+
+def join_subjects_and_aggregated(subject_df, aggregated_loc):
+    logging.info('Aggregated Predictions: {}'.format(len(aggregated_loc)))
+    logging.info('Subjects: {}'.format(len(subject_df)))
+    df = pd.merge(aggregated_loc, subject_df, on='subject_id', how='inner')
+    return df
 
 
 def start_panoptes_listener(save_dir, max_classifications):
@@ -68,9 +120,9 @@ def start_panoptes_listener(save_dir, max_classifications):
     return p  # let it run without joining! 
 
 
-def start_derived_stream(raw_dir, derived_dir, spark):
+def start_derived_stream(raw_dir, derived_dir, workflow_id, spark):
     return reformat_api_like_exports.derive_chunks(
-        workflow_id='6122',  # GZ decals workflow, TODO will change to priority workflow
+        workflow_id=workflow_id,  # GZ decals workflow, TODO will change to priority workflow
         raw_classification_dir=raw_dir,
         output_dir=derived_dir,
         mode='stream',
@@ -83,35 +135,46 @@ def start_flat_stream(derived_dir, flat_dir, spark):
     return flatten.stream(derived_dir, flat_dir, print_status=False, spark=spark)
 
 
-def get_new_reduction_demo():
+
+
+
+
+
+# debug from here
+def get_new_aggregation_demo(workflow_id=6122):
     working_dir = 'temp'
     if os.path.isdir(working_dir):
         shutil.rmtree(working_dir)
     os.mkdir(working_dir)
-    
-    volunteers = Volunteers(working_dir, max_classifications=100)
+
+    volunteers = Volunteers(working_dir, workflow_id, max_classifications=100)
     volunteers.listen(blocking=True)
-    df = volunteers.aggregate()
-    output_loc = os.path.join(working_dir, 'aggregated.csv')
-    df.to_csv(output_loc, index=False)
+    volunteers.aggregate()
 
 
-def get_new_reduction():
+# run from here
+def get_new_aggregation(workflow_id=6122):
     working_dir = '../zoobot/data/decals/classifications/streaming'
-    volunteers = Volunteers(working_dir, max_classifications=1e8)  # no max classifications, will be long-running
+    volunteers = Volunteers(working_dir, workflow_id, max_classifications=1e8)  # no max classifications, will be long-running
     volunteers.listen(blocking=True)
-    df = volunteers.aggregate()
-    output_loc = os.path.join(working_dir, 'aggregated.csv')
-    df.to_csv(output_loc, index=False)
+    volunteers.aggregate()
+
+
+def get_new_reduction(working_dir, workflow_id=6122, max_classifications=1e8):
+    volunteers = Volunteers(working_dir, workflow_id, max_classifications)  # no max classifications, will be long-running
+    classification_df = volunteers.get_all_classifications(max_age=None)
+    classification_df.to_csv(os.path.join(working_dir, 'classifications.csv'), index=False)
 
 
 if __name__ == '__main__':
 
     # get_new_reduction_demo()
 
-    get_new_reduction()
-
-
+    working_dir = '../zoobot/data/decals/classifications/streaming'
+    max_classifications = 1e8
+    # working_dir = 'temp'
+    # max_classifications = 100
+    get_new_reduction(working_dir, max_classifications=max_classifications)
 
     # start getting classifications, but in another process (not blocking)
     # spark streams will catch up

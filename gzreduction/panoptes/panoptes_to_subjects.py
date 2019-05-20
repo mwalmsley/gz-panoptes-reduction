@@ -4,55 +4,68 @@ import shutil
 import json
 from datetime import datetime
 
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf, count
+from pyspark.sql.types import TimestampType, BooleanType, StringType, IntegerType
+
 from gzreduction.panoptes.api import api_to_json
 from gzreduction.panoptes import panoptes_to_responses, responses_to_votes
 
 
-def get_subjects(classification_locs, save_dir):
-    extract_subjects(classification_locs, save_dir)
-    subject_df = responses_to_votes.join_shards(save_dir, header=header())
-    return subject_df.drop_duplicates(subset=['subject_id'], keep='first')  # subjects will repeat
+def run(raw_dir, workflow_id, spark=None):
+    if not spark:
+        spark = SparkSession \
+        .builder \
+        .appName("subjects") \
+        .getOrCreate()
+
+    # if not [x for x in os.listdir(raw_dir) if x.endswith('json')]:
+    #     raise ValueError('No JSON files found to be read - check derived pipeline output?')
+    derived_df = spark.read.json(raw_dir)
+    return extract_subjects(derived_df, workflow_id)
+
+def extract_subjects(df, workflow_id):
+    df = df.filter(df['links']['workflow'] == workflow_id)
+    # classifications = lines.map(lambda x: panoptes_to_responses.load_classification_line(x))
+    # classifications_after_start = classifications.filter(lambda x: x['created_at'] >= start_date)
+    # raw_subjects = classifications_after_start.map(lambda x: x['links']['subject'])
+    # # may not be necessary with date filter
+    # not_manga = raw_subjects.filter(lambda x: '!MANGAID' not in x['metadata'].keys())
+    # subjects = not_manga.map(lambda x: get_subject(x))
+    # output_lines = subjects.map(lambda x: panoptes_to_responses.response_to_line(x, header=header()))
+    # output_lines.saveAsTextFile(save_dir)
+
+    # df.printSchema()
+
+    subject_df = df.select(
+        df['links']['subject']['locations'][0]['image/png'].alias('subject_url'),
+        df['links']['subject']['metadata']['!iauname'].alias('iauname'),
+        df['links']['subject']['id'].alias('subject_id'))
+
+    # subjects will repeat
+    return subject_df.toPandas().drop_duplicates(subset=['subject_id'], keep='first')  # spark has no keep=first option :( due to sharding
 
 
-def extract_subjects(classification_locs, save_dir, start_date=datetime(year=2018, month=3, day=15)):
-    sc = panoptes_to_responses.start_spark('get_subjects')
 
-    # load all classifications as RDD
-    assert isinstance(classification_locs, list)
-    classification_chunks = [sc.textFile(loc) for loc in classification_locs]
-    lines = sc.union(classification_chunks)
+# def get_subjects(df):
 
-    classifications = lines.map(lambda x: panoptes_to_responses.load_classification_line(x))
-    classifications_after_start = classifications.filter(lambda x: x['created_at'] >= start_date)
-    raw_subjects = classifications_after_start.map(lambda x: x['links']['subject'])
-    # may not be necessary with date filter
-    not_manga = raw_subjects.filter(lambda x: '!MANGAID' not in x['metadata'].keys())
-    subjects = not_manga.map(lambda x: get_subject(x))
-    output_lines = subjects.map(lambda x: panoptes_to_responses.response_to_line(x, header=header()))
-    output_lines.saveAsTextFile(save_dir)
-    sc.stop()
+#     # metadata_keys = raw_subject['metadata'].keys()
+#     # iauname_keys = ['iauname', '!iauname']
+#     # if not any(key in metadata_keys for key in iauname_keys):
+#     #     raise ValueError(raw_subject)
+#     # for key in iauname_keys:
+#     #     if key in metadata_keys:
+#     #         iauname = raw_subject['metadata'][key]
+#     #         break
 
+#     df = df.select(
+#         df['subject']['locations'][0]['image/png'].alias('subject_url'),
+#         df['subject']['metadata']['iauname'].alias('iauname'),
+#         df['subject']['id'].alias('subject_id'))
 
-def get_subject(raw_subject):
+#     df.show()
 
-    metadata_keys = raw_subject['metadata'].keys()
-    iauname_keys = ['iauname', '!iauname']
-    if not any(key in metadata_keys for key in iauname_keys):
-        raise ValueError(raw_subject)
-    for key in iauname_keys:
-        if key in metadata_keys:
-            iauname = raw_subject['metadata'][key]
-            break
-        
-    subject_url = raw_subject['locations'][0]['image/png']
-    
-    loaded_subject = {
-        'subject_id': raw_subject['id'],
-        'iauname': iauname,
-        'subject_url': subject_url
-        # 'metadata': '"' + json.dumps(raw_subject['metadata']) + '"'
-    }
-    return loaded_subject
+#     return df
 
 
 def header():
@@ -67,11 +80,13 @@ if __name__ == '__main__':
         filemode='w',
         level=logging.DEBUG)
 
-    classification_dir = '/tmp/working_dir/raw'
-    classification_locs = api_to_json.get_chunk_files(classification_dir, derived=True)
-
-    save_dir = '/tmp/working_dir/panoptes_subjects'
+    # raw_dir = 'data/streaming/derived_output'
+    # save_dir = 'data/streaming/subjects'
+    raw_dir = 'temp/raw'
+    save_dir = 'temp/subjects'
     if os.path.isdir(save_dir):
         shutil.rmtree(save_dir)
 
-    get_subjects(classification_locs, save_dir)
+    df = run(raw_dir, save_dir, workflow_id='6122')
+    print(df.head())
+

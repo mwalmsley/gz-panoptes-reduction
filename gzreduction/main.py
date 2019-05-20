@@ -34,23 +34,24 @@ class Volunteers():
         # if on ec2, ...
         self.spark = SparkSession \
             .builder \
-            .master('local[3]') \
+            .master('local[*]') \
             .appName("volunteers_shared") \
             .getOrCreate()
 
     def listen(self, blocking=False):
         # start streams first to be ready for new files
-        # start_derived_stream(self.raw_dir, self.derived_dir, self.workflow_id, self.spark)
+        start_derived_stream(self.raw_dir, self.derived_dir, self.workflow_id, self.spark)
         # start_flat_stream(self.derived_dir, self.flat_dir, self.spark)
         # start making new files
         listener = start_panoptes_listener(self.raw_dir, self.max_classifications)  # not spark  TEMP no new classifications
         if blocking:
             listener.join() # wait for all Panoptes API calls to download before returning
-            exit(0)  # TEMP TODO
             queries = self.spark.streams.active  # list all the streams
             while any([q.status['isDataAvailable'] for q in queries]):
                 print('{} - waiting to process downloaded data'.format(time.time()))
                 time.sleep(10)
+
+        exit(0)  # TEMP TODO
         
 
     def aggregate(self):

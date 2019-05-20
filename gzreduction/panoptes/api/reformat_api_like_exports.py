@@ -166,9 +166,11 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
 
     # infer schema from existing file
     tiny_loc = "data/examples/panoptes_raw.txt"
+    assert os.path.exists(tiny_loc)
     schema = spark.read.json(tiny_loc).schema
 
     if mode == 'stream':
+        logging.warning('Attempting to stream derived files to {}'.format(dirs))
         df = spark.readStream.json(dirs, schema=schema)
     else:
         df = spark.read.json(dirs, schema=schema)

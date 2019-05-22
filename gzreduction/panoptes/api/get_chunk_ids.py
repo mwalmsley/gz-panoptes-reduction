@@ -35,7 +35,10 @@ def get_id_pairs_of_chunks(chunk_dir, derived=False) -> List[Tuple[int, int]]:
         first_line = subprocess.check_output(['head', '-1', loc])
         last_line = subprocess.check_output(['tail', '-1', loc])
         first_id = int(json.loads(first_line)['id'])
-        last_id = int(json.loads(last_line)['id'])
+        try:
+            last_id = int(json.loads(last_line)['id'])
+        except json.decoder.JSONDecodeError:
+            raise ValueError('File {} not formatted properly - interrupted?'.format(loc))
         id_pairs.append([first_id, last_id])
         logging.warning('Found {} id pairs'.format(id_pairs))
     return id_pairs
@@ -44,7 +47,7 @@ def get_id_pairs_of_chunks(chunk_dir, derived=False) -> List[Tuple[int, int]]:
 def get_chunk_files(chunk_dir, derived) -> list:
     candidate_filenames = sorted(os.listdir(chunk_dir))
     # messy coupling with names, but it's quick and effective
-    chunk_filenames = [x for x in candidate_filenames if 'panoptes_api' in x]
+    chunk_filenames = [x for x in candidate_filenames if x.startswith('panoptes_api')]
     if derived:
          selected_filenames = [x for x in chunk_filenames if 'derived' in x]
     else:

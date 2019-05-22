@@ -38,76 +38,51 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 
 def api_df_to_responses(df):
 
-    df.writeStream.format("memory").queryName("tableName").start()
-    print(df.count(), 'before filter')
-
     df = df.withColumn('created_at', to_timestamp(df['created_at']))
-    start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
-    df = df.filter(df['created_at'] > start_date)
+    # start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
+    # df = df.filter(df['created_at'] > start_date)
 
-    # print(df.writeStream
-    # .format("memory")
-    # .queryName("tableName")
-    # .start().count(), 'after filter')
+    # exploded = df.select(
+    #     explode('annotations').alias('annotations_struct'),
+    #     'created_at',
+    #     'user_id',
+    #     'subject_id',
+    #     'classification_id'
+    # )
+    # flattened = exploded.select(
+    #     'annotations_struct.*',
+    #     'created_at',
+    #     'user_id',
+    #     'subject_id',
+    #     'classification_id'
+    #     )
 
-    exploded = df.select(
-        explode('annotations').alias('annotations_struct'),
-        'created_at',
-        'user_id',
-        'subject_id',
-        'classification_id'
-    )
-    flattened = exploded.select(
-        'annotations_struct.*',
-        'created_at',
-        'user_id',
-        'subject_id',
-        'classification_id'
-        )
+    # flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
+    # flattened = flattened.filter(flattened['value'] != 'No')
 
-    # print(flattened.writeStream
-    # .format("memory")
-    # .queryName("tableName")
-    # .start().count(), 'after explode')
-    # filter for multiple choice and None
-    flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
-    # print(flattened.writeStream
-    # .format("memory")
-    # .queryName("tableName")
-    # .start().count(), 'after mc')
-    flattened = flattened.filter(flattened['value'] != 'No')
-    # print(flattened.writeStream
-    # .format("memory")
-    # .queryName("tableName")
-    # .start().count(), 'after has value')
+    # # https://docs.databricks.com/spark/latest/spark-sql/udf-python.html
+    # flattened = flattened.withColumn('cleaned_response', sanitise_string_udf(flattened['value']))
+    # # TODO filter again to avoid nulls?
+    # flattened = flattened.withColumn(
+    #     'question',
+    #     get_question_udf(
+    #         flattened['task_id']
+    #     )
+    # )
+    # flattened = flattened.withColumn(
+    #     'response',
+    #     get_answer_udf(
+    #         flattened['task_id'],
+    #         flattened['cleaned_response']
+    #     )
+    # )
 
-    # https://docs.databricks.com/spark/latest/spark-sql/udf-python.html
-    flattened = flattened.withColumn('cleaned_response', sanitise_string_udf(flattened['value']))
-    # TODO filter again to avoid nulls?
-    flattened = flattened.withColumn(
-        'question',
-        get_question_udf(
-            flattened['task_id']
-        )
-    )
-    flattened = flattened.withColumn(
-        'response',
-        get_answer_udf(
-            flattened['task_id'],
-            flattened['cleaned_response']
-        )
-    )
+    # flat_view = flattened.select(
+    #     'created_at', 'user_id', 'subject_id', 'classification_id', 'question', 'response'
+    # )
 
-    flat_view = flattened.select(
-        'created_at', 'user_id', 'subject_id', 'classification_id', 'question', 'response'
-    )
-    # flat_view.show()
-    # https://spark.apache.org/docs/latest/api/python/pyspark.sql.html?highlight=save#pyspark.sql.DataFrameWriter
-    # flat_view.write.save(
-    #     'temp_flat.csv', 
-    #     mode='overwrite',
-    #     format='csv')
-    return flat_view
+    # return flat_view
+    return df
 
 
 def stream(input_dir, output_dir, print_status=False, spark=None):

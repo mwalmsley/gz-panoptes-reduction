@@ -171,7 +171,7 @@ def get_new_reduction(working_dir, workflow_id=6122, max_classifications=1e8):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Reduction')
-    parser.add_argument('--max', dest='max_classifications_arg', type=int, default=None)
+    parser.add_argument('--max', dest='max_classifications', type=int, default=None)
 
 
     # get_new_reduction_demo()
@@ -179,7 +179,10 @@ if __name__ == '__main__':
     working_dir = '../zoobot/data/decals/classifications/streaming'
     # working_dir = 'temp'
 
-    if not max_classifications_arg:
+    args = parser.parse_args()
+    if args.max_classifications:
+        max_classifications = args.max_classifications
+    else:
         max_classifications = 1e8
         # max_classifications = 100
 

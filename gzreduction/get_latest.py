@@ -67,7 +67,7 @@ def execute_reduction(workflow_id, working_dir, last_id, max_classifications=1e8
     )
     del panoptes_votes
 
-    join_subjects_and_aggregated(derived_dir, predictions_loc):
+    df = join_subjects_and_aggregated(derived_dir, predictions_loc)
 
     return df
 
@@ -86,7 +86,7 @@ def join_subjects_and_aggregated(derived_dir, aggregated_loc):
     logging.info('Predictions: {}'.format(len(predictions)))
     
     df = pd.merge(predictions, subjects, on='subject_id', how='inner')
-
+    return df
 
 
 

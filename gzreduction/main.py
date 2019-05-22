@@ -5,6 +5,7 @@ import datetime
 import shutil
 import json
 from multiprocessing import Process
+import argparse
 
 import pandas as pd
 from pyspark.sql import SparkSession
@@ -169,12 +170,19 @@ def get_new_reduction(working_dir, workflow_id=6122, max_classifications=1e8):
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser('Reduction')
+    parser.add_argument('--max', dest='max_classifications_arg', type=int, default=None)
+
+
     # get_new_reduction_demo()
 
     working_dir = '../zoobot/data/decals/classifications/streaming'
-    max_classifications = 1e8
     # working_dir = 'temp'
-    # max_classifications = 100
+
+    if not max_classifications_arg:
+        max_classifications = 1e8
+        # max_classifications = 100
+
     get_new_reduction(working_dir, max_classifications=max_classifications)
 
     # start getting classifications, but in another process (not blocking)

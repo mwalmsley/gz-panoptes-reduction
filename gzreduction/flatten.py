@@ -38,11 +38,7 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 
 def api_df_to_responses(df):
 
-    df.writeStream
-    .format("memory")
-    .queryName("tableName")
-    .start()
-    )
+    df.writeStream.format("memory").queryName("tableName").start()
     print(df.count(), 'before filter')
 
     df = df.withColumn('created_at', to_timestamp(df['created_at']))

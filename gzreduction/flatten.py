@@ -38,10 +38,13 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 
 def api_df_to_responses(df):
 
-    df = df.withColumn('created_at', to_timestamp(df['created_at']))
+    print(df.count(), 'before filter')
 
+    df = df.withColumn('created_at', to_timestamp(df['created_at']))
     start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
     df = df.filter(df['created_at'] > start_date)
+
+    print(df.count(), 'after filter')
 
     exploded = df.select(
         explode('annotations').alias('annotations_struct'),
@@ -58,9 +61,12 @@ def api_df_to_responses(df):
         'classification_id'
         )
 
+    print(df.count(), 'after explode')
     # filter for multiple choice and None
     flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
+    print(df.count(), 'after mc')
     flattened = flattened.filter(flattened['value'] != 'No')
+    print(df.count(), 'after has value')
 
     # https://docs.databricks.com/spark/latest/spark-sql/udf-python.html
     flattened = flattened.withColumn('cleaned_response', sanitise_string_udf(flattened['value']))

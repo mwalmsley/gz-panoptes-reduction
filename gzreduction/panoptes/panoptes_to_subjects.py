@@ -21,8 +21,8 @@ def run(raw_dir, workflow_id, spark=None):
 
     # if not [x for x in os.listdir(raw_dir) if x.endswith('json')]:
     #     raise ValueError('No JSON files found to be read - check derived pipeline output?')
-    derived_df = spark.read.json(raw_dir)
-    return extract_subjects(derived_df, workflow_id)
+    raw_df = spark.read.json(raw_dir)
+    return extract_subjects(raw_df, workflow_id)
 
 def extract_subjects(df, workflow_id):
     df = df.filter(df['links']['workflow'] == workflow_id)

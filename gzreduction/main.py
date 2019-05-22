@@ -67,12 +67,15 @@ class Volunteers():
                     return pd.read_csv(metadata['classification_loc'])
 
         self.listen(blocking=True)
+
         aggregated_df = self.aggregate()
-        subject_df = self.get_subjects()
+        aggregated_df.to_csv(self.aggregated_loc, index=False)
+
+        subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas
+        subject_df.to_csv(self.subject_loc, index=False)
+
         classification_df = join_subjects_and_aggregated(subject_df, aggregated_df)
 
-        aggregated_df.to_csv(self.aggregated_loc, index=False)
-        subject_df.to_csv(self.subject_loc, index=False)
         classification_df.to_csv(self.classification_loc, index=False)
         with open(self.metadata_loc, 'w') as f:
             json.dump(
@@ -87,13 +90,12 @@ class Volunteers():
         
         return classification_df
 
-        
 
     def get_subjects(self):
         subjects = panoptes_to_subjects.run(
-            self.raw_dir,
-            self.workflow_id,
-            self.spark)
+                self.raw_dir,
+                self.workflow_id,
+                self.spark)
         logging.info('Subjects: {}'.format(len(subjects)))
         assert not any(subjects.duplicated(subset=['subject_id']))
         subjects.to_csv(self.subject_loc, index=False)  # for debugging

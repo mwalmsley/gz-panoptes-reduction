@@ -38,7 +38,7 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 
 def api_df_to_responses(df):
 
-    print(writeStream
+    print(df.writeStream
     .format("memory")
     .queryName("tableName")
     .start().count(), 'before filter')
@@ -47,7 +47,7 @@ def api_df_to_responses(df):
     start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
     df = df.filter(df['created_at'] > start_date)
 
-    print(writeStream
+    print(df.writeStream
     .format("memory")
     .queryName("tableName")
     .start().count(), 'after filter')
@@ -67,18 +67,18 @@ def api_df_to_responses(df):
         'classification_id'
         )
 
-    print(writeStream
+    print(flattened.writeStream
     .format("memory")
     .queryName("tableName")
     .start().count(), 'after explode')
     # filter for multiple choice and None
     flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
-    print(writeStream
+    print(flattened.writeStream
     .format("memory")
     .queryName("tableName")
     .start().count(), 'after mc')
     flattened = flattened.filter(flattened['value'] != 'No')
-    print(writeStream
+    print(flattened.writeStream
     .format("memory")
     .queryName("tableName")
     .start().count(), 'after has value')

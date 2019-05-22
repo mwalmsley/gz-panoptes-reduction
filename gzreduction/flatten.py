@@ -39,8 +39,8 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 def api_df_to_responses(df):
 
     df = df.withColumn('created_at', to_timestamp(df['created_at']))
-    # start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
-    # df = df.filter(df['created_at'] > start_date)
+    start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
+    df = df.filter(df['created_at'] > start_date)
 
     # exploded = df.select(
     #     explode('annotations').alias('annotations_struct'),

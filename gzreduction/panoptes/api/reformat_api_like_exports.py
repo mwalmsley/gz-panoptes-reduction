@@ -177,6 +177,9 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
         df = spark.read.json(dirs, schema=schema)
 
     df = df.filter(df['links']['workflow'] == workflow_id)
+
+    df = df.dropDuplicates('id')  # classification id is unique. Unlike pandas, keeps one row.
+
     df = clarify_workflow_version(df)
     df = rename_metadata_like_exports(df)
 

@@ -81,9 +81,7 @@ def api_df_to_responses(df):
         'created_at', 'user_id', 'subject_id', 'classification_id', 'question', 'response'
     )
 
-    return flat_view
-    # return df
-
+    return flat_view.drop_duplicates()  # on all columns
 
 def stream(input_dir, output_dir, print_status=False, spark=None):
     if not spark:

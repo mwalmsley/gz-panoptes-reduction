@@ -112,8 +112,6 @@ def stream(input_dir, output_dir, print_status=False, spark=None):
             if query.status['isDataAvailable']:
                 print(datetime.datetime.now(), query.status['message'])
 
-    return flat_df  # streaming dataframe - this one is not started! TODO split save/ontinue?
-
 if __name__ == '__main__':
 
     stream(

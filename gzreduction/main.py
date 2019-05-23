@@ -69,6 +69,15 @@ class Volunteers():
 
         self.listen(blocking=True)
 
+        # reset spark session (messy, see if it works)
+        self.spark.stop()
+        time.sleep(1)
+        self.spark = SparkSession \
+            .builder \
+            .master('local[*]') \
+            .appName("volunteers_aggregate") \
+            .getOrCreate()
+
         aggregated_df = self.aggregate()
         print('Aggregation complete')
         # print('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))

@@ -13,6 +13,9 @@ from gzreduction.schemas.dr5_schema import dr5_schema
 
 def responses_to_reduced_votes(flat_df):
 
+    # should already be done but just in case
+    flat_df = flat_df.drop_duplicates(subset=['classification_id'])
+
     # aggregate by creating question_response pairs, grouping, pivoting, and summing
     join_string_udf = udf(lambda x, y: x + '_' + y)
     flat_df = flat_df.withColumn('question_response', join_string_udf('question', 'response'))

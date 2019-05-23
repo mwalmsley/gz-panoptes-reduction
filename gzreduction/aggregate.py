@@ -65,6 +65,7 @@ def run(input_dir, spark=None):
 
     print('Reducing votes')
     df = responses_to_reduced_votes(flat_df)
+    print('Beginning count post-reduction')
     print(df.count())
 
     print('Repartitoning from {}'.format(df.rdd.getNumPartitions()))

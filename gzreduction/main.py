@@ -69,6 +69,7 @@ class Volunteers():
         self.listen(blocking=True)
 
         aggregated_df = self.aggregate()
+        print('Aggregation complete, saving {} galaxies'.format(len(aggregated_df)))
         aggregated_df.to_csv(self.aggregated_loc, index=False)
 
         subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas

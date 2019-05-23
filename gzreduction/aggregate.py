@@ -60,22 +60,18 @@ def run(input_dir, spark=None):
 
     if not [x for x in os.listdir(input_dir) if x.endswith('json')]:
         raise ValueError('No JSON files found to be aggregated - check flat pipeline output?')
-    print(os.listdir(input_dir))
 
-    print('Reading flat data')
+    print('Reading flattened responses')
     flat_df = spark.read.json(input_dir)
-    print(flat_df.count())
+    print('Total responses: {}'.format(flat_df.count()))
 
-    print('Reducing votes')
+    print('Reducing responses')
     df = responses_to_reduced_votes(flat_df)
-    print('Beginning count post-reduction')
-    print(df.count())
+    print('Classified galaxies: {}'.format(df.count()))
 
-    print('Repartitoning from {}'.format(df.rdd.getNumPartitions()))
 
+    print('Repartitoning from {} to 1'.format(df.rdd.getNumPartitions()))
     df = df.repartition(1)
-    # df = df.collect()
-
     print('Repartition complete')
     return df
 

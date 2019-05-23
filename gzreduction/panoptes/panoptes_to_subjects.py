@@ -12,17 +12,26 @@ from gzreduction.panoptes.api import api_to_json
 from gzreduction.panoptes import panoptes_to_responses, responses_to_votes
 
 
-def run(raw_dir, workflow_id, spark=None):
+def run(raw_dir, output_dir, workflow_id, mode='stream', spark=None):
     if not spark:
         spark = SparkSession \
         .builder \
         .appName("subjects") \
         .getOrCreate()
 
-    # if not [x for x in os.listdir(raw_dir) if x.endswith('json')]:
-    #     raise ValueError('No JSON files found to be read - check derived pipeline output?')
-    raw_df = spark.read.json(raw_dir)
-    return extract_subjects(raw_df, workflow_id)
+    if mode == 'stream':
+        raw_df = spark.readStream.json(raw_dir)
+    else:
+        raw_df = spark.read.json(raw_dir)
+    
+    df = extract_subjects(raw_df, workflow_id)
+
+    if mode == 'stream':
+        df.writeStream().outputMode('append') \
+        .option('checkpointLocation', os.path.join(output_dir, 'checkpoints')) \
+        .start(path=output_dir, format='json')
+    else:
+        df.write.json(output_dir, mode='overwrite')
 
 def extract_subjects(df, workflow_id):
     df = df.filter(df['links']['workflow'] == workflow_id)

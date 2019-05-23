@@ -21,13 +21,13 @@ class Volunteers():
         self.raw_dir = os.path.join(working_dir, 'raw')  
         self.derived_dir = os.path.join(working_dir, 'derived')  # can hopefully put checkpoints in same directory: x/checkpoints
         self.flat_dir = os.path.join(working_dir, 'flat')
+        self.subject_dir = os.path.join(working_dir, 'subjects')
         for directory in [self.raw_dir, self.derived_dir, self.flat_dir]:
             if not os.path.isdir(directory):
                 os.mkdir(directory)
 
         self.metadata_loc = os.path.join(working_dir, 'metadata.json')
         self.aggregated_loc = os.path.join(working_dir, 'aggregated.parquet')
-        self.subject_loc = os.path.join(working_dir, 'subjects.parquet')
         self.classification_loc = os.path.join(working_dir, 'classifications.csv')
 
         self.workflow_id = workflow_id
@@ -41,6 +41,7 @@ class Volunteers():
 
     def listen(self, blocking=False):
         # start streams first to be ready for new files
+        start_subject_stream(self.raw_dir, self.subject_dir, self.workflow_id, self.spark)
         start_derived_stream(self.raw_dir, self.derived_dir, self.workflow_id, self.spark)
         start_flat_stream(self.derived_dir, self.flat_dir, self.spark)
         # start making new files
@@ -74,14 +75,14 @@ class Volunteers():
         aggregated_df.write.save(self.aggregated_loc, mode='overwrite')
         print('Aggregation saved')
 
-        subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas
-        print('Subjects complete')
-        subject_df.write.save(self.subject_loc, mode='overwrite')
-        print('Subjects saved')
+        # subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas
+        # print('Subjects complete')
+        # subject_df.write.save(self.subject_loc, mode='overwrite')
+        # print('Subjects saved')
 
         # will now switch to pandas in-memory
         aggregated_df = pd.read_parquet(self.aggregated_loc)
-        subject_df = pd.read_parquet(self.subject_loc)
+        subject_df = self.spark.read.json(self.subject_dir).toPandas()
         print('Aggregated: {}. Subjects: {}'.format(len(aggregated_df), len(subject_df)))
 
         classification_df = join_subjects_and_aggregated(subject_df, aggregated_df)
@@ -100,13 +101,6 @@ class Volunteers():
         print('Classifications saved')
         
         return classification_df
-
-
-    def get_subjects(self):
-        return panoptes_to_subjects.run(
-                self.raw_dir,
-                self.workflow_id,
-                self.spark)
 
 
 def join_subjects_and_aggregated(subject_df, aggregated_loc):
@@ -129,6 +123,16 @@ def start_panoptes_listener(save_dir, max_classifications):
         )
     p.start()
     return p  # let it run without joining! 
+
+
+def start_subject_stream(raw_dir, output_dir, workflow_id, spark):
+    panoptes_to_subjects.run(
+            raw_dir,
+            output_dir,
+            workflow_id,
+            spark,
+            mode='stream'
+        )
 
 
 def start_derived_stream(raw_dir, derived_dir, workflow_id, spark):

@@ -62,11 +62,12 @@ class Volunteers():
         if max_age:  # if made None, never read
             if os.path.exists(self.metadata_loc):
                 metadata = json.load(open(self.metadata_loc, 'r'))
-                classification_age = datetime.datetime.now() - metadata['last_run']
+                classification_age = datetime.datetime.now() - pd.to_datetime(metadata['last_run'])
                 if  classification_age < max_age:
                     logging.warning('Classification age {} within allowed max age {}, reading from disk'.format(classification_age, max_age))
                     return pd.read_csv(metadata['classification_loc'])
 
+        logging.warning('Retrieving new classifications')
         self.listen(blocking=True)
 
         # reset spark session (messy, see if it works)

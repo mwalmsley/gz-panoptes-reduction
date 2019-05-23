@@ -69,7 +69,8 @@ class Volunteers():
         self.listen(blocking=True)
 
         aggregated_df = self.aggregate()
-        print('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))
+        print('Aggregation complete')
+        # print('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))
         aggregated_df.to_csv(self.aggregated_loc, index=False)
         print('Saving complete')
         aggregated_df = pd.read_csv(self.aggregated_loc)

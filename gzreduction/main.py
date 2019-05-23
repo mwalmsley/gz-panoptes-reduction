@@ -61,7 +61,7 @@ class Volunteers():
     def get_all_classifications(self, max_age=datetime.timedelta(hours=1)):
         if max_age:  # if made None, never read
             if os.path.exists(self.metadata_loc):
-                metadata = json.load(self.metadata_loc)
+                metadata = json.load(open(self.metadata_loc, 'r'))
                 classification_age = datetime.datetime.now() - metadata['last_run']
                 if  classification_age < max_age:
                     logging.warning('Classification age {} within allowed max age {}, reading from disk'.format(classification_age, max_age))

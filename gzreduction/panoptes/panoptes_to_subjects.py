@@ -21,7 +21,8 @@ def run(raw_dir, output_dir, workflow_id, spark=None, mode='stream'):
 
     if mode == 'stream':
         # infer schema from existing file (copied from derived)
-        tiny_loc = "data/examples/panoptes_raw.txt"
+        tiny_loc = os.path.dirname(os.path.realpath(__file__)) + "../../../data/examples/panoptes_raw.txt"
+        print(tiny_loc)
         assert os.path.exists(tiny_loc)
         schema = spark.read.json(tiny_loc).schema
         raw_df = spark.readStream.json(raw_dir, schema=schema)

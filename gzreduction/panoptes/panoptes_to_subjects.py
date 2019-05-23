@@ -43,7 +43,9 @@ def extract_subjects(df, workflow_id):
         df['links']['subject']['id'].alias('subject_id'))
 
     # subjects will repeat
-    return subject_df.toPandas().drop_duplicates(subset=['subject_id'], keep='first')  # spark has no keep=first option :( due to sharding
+    subject_df = subject_df.drop_duplicates(subset=['subject_id'])  # unlike pandas, will keep one row only
+
+    return subject_df
 
 
 

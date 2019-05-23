@@ -20,7 +20,11 @@ def run(raw_dir, output_dir, workflow_id, spark=None, mode='stream'):
         .getOrCreate()
 
     if mode == 'stream':
-        raw_df = spark.readStream.json(raw_dir)
+        # infer schema from existing file (copied from derived)
+        tiny_loc = "data/examples/panoptes_raw.txt"
+        assert os.path.exists(tiny_loc)
+        schema = spark.read.json(tiny_loc).schema
+        raw_df = spark.readStream.json(raw_dir, schema=schema)
     else:
         raw_df = spark.read.json(raw_dir)
     

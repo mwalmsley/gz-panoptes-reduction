@@ -68,16 +68,15 @@ class Volunteers():
 
         # self.listen(blocking=True)
 
-        aggregated_df = self.aggregate()
-        print('Aggregation complete')
+        # aggregated_df = self.aggregate()
+        # print('Aggregation complete')
         # print('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))
         # aggregated_df = aggregated_df.toPandas()
-        aggregated_df.write.save('aggregated.parquet')
+        # aggregated_df.write.save('aggregated.parquet', mode='overwrite')
         # aggregated_df.to_csv(self.aggregated_loc, index=False)
-        print('Saving complete')
+        # print('Saving complete')
         aggregated_df = pd.read_parquet('aggregated.parquet')
-
-        exit(0)
+        print('Pandas len: {}'.format(len(aggregated_df)))
 
         subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas
         subject_df.to_csv(self.subject_loc, index=False)

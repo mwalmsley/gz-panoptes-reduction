@@ -31,7 +31,7 @@ def run(raw_dir, output_dir, workflow_id, spark=None, mode='stream'):
     df = extract_subjects(raw_df, workflow_id)
 
     if mode == 'stream':
-        df.writeStream().outputMode('append') \
+        df.writeStream.outputMode('append') \
         .option('checkpointLocation', os.path.join(output_dir, 'checkpoints')) \
         .start(path=output_dir, format='json')
     else:

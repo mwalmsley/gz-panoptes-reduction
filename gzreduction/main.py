@@ -58,15 +58,15 @@ class Volunteers():
 
     # Main API access point, from e.g. Zoobot
     def get_all_classifications(self, max_age=datetime.timedelta(hours=1)):
-        # if max_age:  # if made None, never read
-        #     if os.path.exists(self.metadata_loc):
-        #         metadata = json.load(self.metadata_loc)
-        #         classification_age = datetime.datetime.now() - metadata['last_run']
-        #         if  classification_age < max_age:
-        #             logging.warning('Classification age {} within allowed max age {}, reading from disk'.format(classification_age, max_age))
-        #             return pd.read_csv(metadata['classification_loc'])
+        if max_age:  # if made None, never read
+            if os.path.exists(self.metadata_loc):
+                metadata = json.load(self.metadata_loc)
+                classification_age = datetime.datetime.now() - metadata['last_run']
+                if  classification_age < max_age:
+                    logging.warning('Classification age {} within allowed max age {}, reading from disk'.format(classification_age, max_age))
+                    return pd.read_csv(metadata['classification_loc'])
 
-        # self.listen(blocking=True)
+        self.listen(blocking=True)
 
         aggregated_df = self.aggregate()
         print('Aggregation complete')

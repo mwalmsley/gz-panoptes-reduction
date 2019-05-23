@@ -12,7 +12,7 @@ from gzreduction.panoptes.api import api_to_json
 from gzreduction.panoptes import panoptes_to_responses, responses_to_votes
 
 
-def run(raw_dir, output_dir, workflow_id, mode='stream', spark=None):
+def run(raw_dir, output_dir, workflow_id, spark=None, mode='stream'):
     if not spark:
         spark = SparkSession \
         .builder \

@@ -66,9 +66,8 @@ def run(input_dir, spark=None):
 
     print('Repartitoning from {}'.format(df.rdd.getNumPartitions()))
 
-    df = df.collect()
-
-    print('sending to pandas')
-    return df.toPandas()
+    df = df.repartition(1)
+    # df = df.collect()
+    return df
 
 

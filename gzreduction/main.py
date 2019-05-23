@@ -26,8 +26,8 @@ class Volunteers():
                 os.mkdir(directory)
 
         self.metadata_loc = os.path.join(working_dir, 'metadata.json')
-        self.aggregated_loc = os.path.join(working_dir, 'aggregated.csv')
-        self.subject_loc = os.path.join(working_dir, 'subjects.csv')
+        self.aggregated_loc = os.path.join(working_dir, 'aggregated.parquet')
+        self.subject_loc = os.path.join(working_dir, 'subjects.parquet')
         self.classification_loc = os.path.join(working_dir, 'classifications.csv')
 
         self.workflow_id = workflow_id
@@ -71,21 +71,21 @@ class Volunteers():
         aggregated_df = self.aggregate()
         print('Aggregation complete')
         # print('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))
-        aggregated_df.write.save('aggregated.parquet', mode='overwrite')
+        aggregated_df.write.save(self.aggregated_loc, mode='overwrite')
         print('Aggregation saved')
 
         subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas
         print('Subjects complete')
-        subject_df.write.save('subjects.parquet', mode='overwrite')
+        subject_df.write.save(self.subject_loc, mode='overwrite')
         print('Subjects saved')
 
         # will now switch to pandas in-memory
-        subject_df = pd.read_parquet('subject_parquet')
-        aggregated_df = pd.read_parquet('aggregated.parquet')
+        aggregated_df = pd.read_parquet(self.aggregated_loc)
+        subject_df = pd.read_parquet(self.subject_loc)
         print('Aggregated: {}. Subjects: {}'.format(len(aggregated_df), len(subject_df)))
 
         classification_df = join_subjects_and_aggregated(subject_df, aggregated_df)
-
+        print('Classification complete')
         classification_df.to_csv(self.classification_loc, index=False)
         with open(self.metadata_loc, 'w') as f:
             json.dump(
@@ -97,19 +97,16 @@ class Volunteers():
                 },
                 f
             )
+        print('Classifications saved')
         
         return classification_df
 
 
     def get_subjects(self):
-        subjects = panoptes_to_subjects.run(
+        return panoptes_to_subjects.run(
                 self.raw_dir,
                 self.workflow_id,
                 self.spark)
-        logging.info('Subjects: {}'.format(len(subjects)))
-        assert not any(subjects.duplicated(subset=['subject_id']))
-        subjects.to_csv(self.subject_loc, index=False)  # for debugging
-        return subjects
 
 
 def join_subjects_and_aggregated(subject_df, aggregated_loc):

@@ -166,7 +166,7 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
             .getOrCreate()
 
     # infer schema from existing file
-    tiny_loc = os.path.dirname(os.path.realpath(__file__)) + "../../../data/examples/panoptes_raw.txt"
+    tiny_loc = os.path.dirname(os.path.realpath(__file__)) + "/../../../data/examples/panoptes_raw.txt"
     assert os.path.exists(tiny_loc)
     schema = spark.read.json(tiny_loc).schema
 

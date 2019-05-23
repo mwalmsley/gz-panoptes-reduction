@@ -84,14 +84,9 @@ class Volunteers():
         aggregated_df.write.save(self.aggregated_loc, mode='overwrite')
         print('Aggregation saved')
 
-        # subject_df = self.get_subjects()  # could be done in streaming fashion and then just read to pandas
-        # print('Subjects complete')
-        # subject_df.write.save(self.subject_loc, mode='overwrite')
-        # print('Subjects saved')
-
         # will now switch to pandas in-memory
         aggregated_df = pd.read_parquet(self.aggregated_loc)
-        subject_df = self.spark.read.json(self.subject_dir).toPandas()
+        subject_df = self.spark.read.json(self.subject_dir).drop_duplicates().toPandas()
         print('Aggregated: {}. Subjects: {}'.format(len(aggregated_df), len(subject_df)))
 
         classification_df = join_subjects_and_aggregated(subject_df, aggregated_df)
@@ -102,8 +97,7 @@ class Volunteers():
                 {
                     'last_run': str(datetime.datetime.now()),
                     'classification_loc': self.classification_loc,
-                    'aggregated_loc': self.aggregated_loc,
-                    'subject_loc': self.subject_loc
+                    'aggregated_loc': self.aggregated_loc
                 },
                 f
             )

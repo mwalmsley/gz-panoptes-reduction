@@ -68,6 +68,8 @@ def run(input_dir, spark=None):
 
     df = df.repartition(1)
     # df = df.collect()
+
+    print('Repartition complete')
     return df
 
 

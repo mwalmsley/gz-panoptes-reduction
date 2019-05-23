@@ -57,9 +57,18 @@ def run(input_dir, spark=None):
 
     if not [x for x in os.listdir(input_dir) if x.endswith('json')]:
         raise ValueError('No JSON files found to be aggregated - check flat pipeline output?')
+
+    print('Reading flat data')
     flat_df = spark.read.json(input_dir)
 
+    print('Reducing votes')
     df = responses_to_reduced_votes(flat_df)
+
+    print('Repartitoning from {}'.format(df.rdd.partitions.size))
+
+    df = df.repartition(1)
+
+    print('sending to pandas')
     return df.toPandas()
 
 

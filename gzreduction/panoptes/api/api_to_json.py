@@ -122,7 +122,7 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
 class AtomicFile():
     """Atomic for Spark (saves each batch of n classifications in one operation)"""
 
-    def __init__(self, save_dir, per_file = 5000):
+    def __init__(self, save_dir, per_file=2500):
         self.save_dir = save_dir
         self.temp_loc = os.path.join('.temp', 'temp_file')
         if not os.path.isdir('.temp'):

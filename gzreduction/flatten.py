@@ -3,7 +3,8 @@ import logging
 import os
 import time
 import datetime
-import uuid
+# import uuid
+import zlib
 
 from pyspark.sql import SparkSession
 
@@ -88,6 +89,10 @@ def api_df_to_responses(df):
 
     # define unique id for each question-response event
 
+    flat_view = flat_view.withColumn(
+        'response_id',
+        get_unique_int_from_three_strings_udf(flat_view['classification_id'], flat_view['question'], flat_view['response'])
+    )
     # flat_view = flat_view.withColumn('hello', lit('world'))
     # flat_view = flat_view.withColumn('hello_again', lit('world'))
     # flat_view = flat_view.withColumn(
@@ -111,11 +116,16 @@ def api_df_to_responses(df):
     return flat_view
 # 34126
 
-def get_uuid_from_str(x: str):
-    if not isinstance(x, str):
-        raise TypeError('Expected str, got {} ({})'.format(x, type(x)))
-    return uuid.uuid5(uuid.NAMESPACE_DNS, x)
-# zlib.adler32('hello'.encode())
+def get_unique_int_from_three_strings(x: str, y: str, z: str):
+    concat = x + y + z
+    return zlib.adler32(concat.encode())
+get_unique_int_from_three_strings_udf = udf(get_unique_int_from_three_strings)
+
+# def get_uuid_from_str(x: str):
+#     if not isinstance(x, str):
+#         raise TypeError('Expected str, got {} ({})'.format(x, type(x)))
+#     return uuid.uuid5(uuid.NAMESPACE_DNS, x)
+# 
 
 # def get_uuid_from_columns(*cols):
 #     return get_uuid_from_str(reduce(lambda x, y: x + y, cols))

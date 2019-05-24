@@ -107,6 +107,7 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
 
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
+            break
             
         if int(classification['id']) > latest_id:
             latest_id = int(classification['id'])

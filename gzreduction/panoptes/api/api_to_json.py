@@ -124,7 +124,9 @@ class AtomicFile():
 
     def __init__(self, save_dir, per_file = 5000):
         self.save_dir = save_dir
-        self.temp_loc = os.path.join('/tmp', 'temp_file')
+        self.temp_loc = os.path.join('.temp', 'temp_file')
+        if not os.path.isdir('.temp'):
+            os.mkdir('.temp')
         if os.path.isfile(self.temp_loc):
             os.remove(self.temp_loc)
         self.temp_file = open(self.temp_loc, 'a+')

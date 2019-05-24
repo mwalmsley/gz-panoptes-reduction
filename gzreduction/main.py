@@ -17,7 +17,7 @@ from gzreduction import flatten, aggregate
 
 class Volunteers():
 
-    def __init__(self, working_dir, workflow_id, max_classifications):
+    def __init__(self, working_dir, workflow_ids, max_classifications):
         self.raw_dir = os.path.join(working_dir, 'raw')  
         self.derived_dir = os.path.join(working_dir, 'derived')  # can hopefully put checkpoints in same directory: x/checkpoints
         self.flat_dir = os.path.join(working_dir, 'flat')
@@ -30,7 +30,8 @@ class Volunteers():
         self.aggregated_loc = os.path.join(working_dir, 'aggregated.parquet')
         self.classification_loc = os.path.join(working_dir, 'classifications.csv')
 
-        self.workflow_id = workflow_id
+        assert isinstance(workflow_ids, list)
+        self.workflow_ids = workflow_ids
         self.max_classifications = max_classifications  # for debugging
         # if on ec2, ...
         self.spark = SparkSession \
@@ -41,13 +42,14 @@ class Volunteers():
 
     def listen(self, blocking=False):
         # start streams first to be ready for new files
-        start_subject_stream(self.raw_dir, self.subject_dir, self.workflow_id, self.spark)
-        start_derived_stream(self.raw_dir, self.derived_dir, self.workflow_id, self.spark)
+        start_subject_stream(self.raw_dir, self.subject_dir, self.workflow_ids, self.spark)
+        start_derived_stream(self.raw_dir, self.derived_dir, self.workflow_ids, self.spark)
         start_flat_stream(self.derived_dir, self.flat_dir, self.spark)
         # start making new files
-        listener = start_panoptes_listener(self.raw_dir, self.max_classifications)  # not spark  TEMP no new classifications
+        listener = start_panoptes_listener(self.raw_dir, self.max_classifications)  # not spark
         if blocking:
             listener.join() # wait for all Panoptes API calls to download before returning
+            time.sleep(5)  # make sure all streams have started any final batch before continuing
             queries = self.spark.streams.active  # list all the streams
             while any([q.status['isDataAvailable'] for q in queries]):
                 print('{} - waiting to process downloaded data'.format(time.time()))
@@ -68,6 +70,7 @@ class Volunteers():
                     return pd.read_csv(metadata['classification_loc'])
 
         logging.warning('Retrieving new classifications')
+        
         self.listen(blocking=True)
 
         # reset spark session (messy, see if it works)
@@ -129,19 +132,19 @@ def start_panoptes_listener(save_dir, max_classifications):
     return p  # let it run without joining! 
 
 
-def start_subject_stream(raw_dir, output_dir, workflow_id, spark):
+def start_subject_stream(raw_dir, output_dir, workflow_ids, spark):
     panoptes_to_subjects.run(
             raw_dir,
             output_dir,
-            workflow_id,
+            workflow_ids,
             spark,
             mode='stream'
         )
 
 
-def start_derived_stream(raw_dir, derived_dir, workflow_id, spark):
+def start_derived_stream(raw_dir, derived_dir, workflow_ids, spark):
     return reformat_api_like_exports.derive_chunks(
-        workflow_id=workflow_id,  # GZ decals workflow, TODO will change to priority workflow
+        workflow_ids=workflow_ids,  # GZ decals workflow, TODO will change to priority workflow
         raw_classification_dir=raw_dir,
         output_dir=derived_dir,
         mode='stream',
@@ -160,32 +163,26 @@ def start_flat_stream(derived_dir, flat_dir, spark):
 
 
 # debug from here
-def get_new_aggregation_demo(workflow_id=6122):
+def get_new_aggregation_demo(workflow_ids=['6122', '10582']):
     working_dir = 'temp'
     if os.path.isdir(working_dir):
         shutil.rmtree(working_dir)
     os.mkdir(working_dir)
 
-    volunteers = Volunteers(working_dir, workflow_id, max_classifications=100)
+    volunteers = Volunteers(working_dir, workflow_ids, max_classifications=100)
     volunteers.listen(blocking=True)
     volunteers.aggregate()
 
 
-# run from here
-def get_new_aggregation(workflow_id=6122):
-    working_dir = '../zoobot/data/decals/classifications/streaming'
-    volunteers = Volunteers(working_dir, workflow_id, max_classifications=1e8)  # no max classifications, will be long-running
-    volunteers.listen(blocking=True)
-    volunteers.aggregate()
-
-
-def get_new_reduction(working_dir, workflow_id=6122, max_classifications=1e8):
-    volunteers = Volunteers(working_dir, workflow_id, max_classifications)  # no max classifications, will be long-running
+def get_new_reduction(working_dir, workflow_ids=['6122', '10582'], max_classifications=1e8):
+    volunteers = Volunteers(working_dir, workflow_ids, max_classifications)  # no max classifications, will be long-running
     classification_df = volunteers.get_all_classifications(max_age=None)
     classification_df.to_csv(os.path.join(working_dir, 'classifications.csv'), index=False)
 
 
 if __name__ == '__main__':
+
+    logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser('Reduction')
     parser.add_argument('--max', dest='max_classifications', type=int, default=None)

@@ -59,6 +59,7 @@ def get_all_workflow_versions(workflow_id):
     Returns:
         [type]: [description]
     """
+    assert isinstance(workflow_id, str)
     auth_token = get_panoptes_auth_token()
     all_versions = []
     page = 1
@@ -157,7 +158,13 @@ def clarify_workflow_version(df):
     return df
 
 
-def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode='batch', print_output=False, spark=None):
+def derive_directories_with_spark(
+    input_dir: str, 
+    output_dir: str, 
+    workflows: dict, 
+    mode='batch', 
+    print_output=False,
+    spark=None):
 
     if not spark:
         spark = SparkSession \
@@ -171,27 +178,28 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
     schema = spark.read.json(tiny_loc).schema
 
     if mode == 'stream':
-        logging.warning('Attempting to stream derived files to {}'.format(dirs))
-        df = spark.readStream.json(dirs, schema=schema)
+        logging.warning('Attempting to stream derived files to {}'.format(input_dir))
+        df = spark.readStream.json(input_dir, schema=schema)
     else:
-        df = spark.read.json(dirs, schema=schema)
+        df = spark.read.json(input_dir, schema=schema)
 
-    df = df.filter(df['links']['workflow'] == workflow_id)
+    df = df.filter(df['links']['workflow'].isin(list(workflows.keys())))  # include only allowed workflows
 
-    df = df.drop_duplicates(subset=['id'])  # classification id is unique. Unlike pandas, keeps one row.
+    # TODO this doesn't work because it wasn't run at first, so state is not saved - needs full re-run
+    # df = df.drop_duplicates(subset=['id'])  # classification id is unique. Unlike pandas, keeps one row.
 
     df = clarify_workflow_version(df)
     df = rename_metadata_like_exports(df)
 
-    workflows_str = workflows.to_json()
-    def match_and_insert_workflow(annotations, major_version, minor_version, workflows_str):
-        workflows = pd.DataFrame(data=json.loads(workflows_str))
-        workflow = find_matching_version(major_version, minor_version, workflows)
+    workflows_str = json.dumps(workflows)
+    def match_and_insert_workflow(annotations, workflow_id, major_version, minor_version, workflows_str):
+        workflow_versions = pd.DataFrame(data=json.loads(workflows_str)[workflow_id])
+        workflow = find_matching_version(major_version, minor_version, workflow_versions)
         annotations_dict = json.loads(annotations)
         updated_annotations_dict = insert_workflow_contents(annotations_dict, workflow)
         return json.dumps(updated_annotations_dict)
     match_and_insert_workflow_udf = udf(
-        lambda x, y, z: match_and_insert_workflow(x, y, z, workflows_str),
+        lambda a, b, c, d: match_and_insert_workflow(a, b, c, d, workflows_str),
         StringType()
     )
 
@@ -201,8 +209,9 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
         'annotations',
         match_and_insert_workflow_udf(
             df['annotations'],
-            df['workflow_major_version'],
-            df['workflow_minor_version']
+            df['workflow_id'],  # added by rename_metadata_like_exports
+            df['workflow_major_version'],  # added by clarify_workflow_version
+            df['workflow_minor_version']  # added by clarify_workflow_version
         )
     )
 
@@ -222,6 +231,7 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
         query = df.writeStream \
             .outputMode('append') \
             .option('checkpointLocation', os.path.join(output_dir, 'checkpoints')) \
+            .trigger(processingTime='3 seconds') \
             .start(path=output_dir, format='json')
         print('Derived data ready to stream')
         if print_output:
@@ -233,13 +243,16 @@ def derive_directories_with_spark(dirs, output_dir, workflows, workflow_id, mode
         df.show()
         df.write.save(output_dir, format='json', mode='overwrite')
 
-def derive_chunks(workflow_id: str, raw_classification_dir: str, output_dir: str, mode: str, print_status: bool, spark):
+def derive_chunks(workflow_ids: list, raw_classification_dir: str, output_dir: str, mode: str, print_status: bool, spark):
+    assert isinstance(workflow_ids, list)
     assert isinstance(raw_classification_dir, str)
 
-    workflow_versions = get_all_workflow_versions(workflow_id)
-    workflows_pdf = make_workflow_version_df(workflow_versions)
+    workflows = {}
+    for workflow_id in workflow_ids:
+        workflow_versions = get_all_workflow_versions(workflow_id)
+        workflows[workflow_id] = make_workflow_version_df(workflow_versions).to_dict()
 
-    derive_directories_with_spark(raw_classification_dir, output_dir, workflows_pdf, workflow_id, mode, print_status)
+    derive_directories_with_spark(raw_classification_dir, output_dir, workflows, mode, print_status)
 
 
 # if __name__ == '__main__':

@@ -1,11 +1,13 @@
 import logging
+# import itertools
 import os
 import time
 import datetime
+import uuid
 
 from pyspark.sql import SparkSession
 
-from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf
+from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf, lit
 from pyspark.sql.types import TimestampType, StringType
 
 from gzreduction.panoptes.panoptes_to_responses import sanitise_string
@@ -42,19 +44,21 @@ def api_df_to_responses(df):
     start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
     df = df.filter(df['created_at'] > start_date)  # requires pyspark > 2.2 or fails silently, removing all rows...
 
-    exploded = df.select(
-        explode('annotations').alias('annotations_struct'),
+    cols_to_preserve = [
         'created_at',
+        'workflow_id',
         'user_id',
         'subject_id',
         'classification_id'
+    ]
+
+    exploded = df.select(
+        explode('annotations').alias('annotations_struct'),
+        *cols_to_preserve
     )
     flattened = exploded.select(
         'annotations_struct.*',
-        'created_at',
-        'user_id',
-        'subject_id',
-        'classification_id'
+        *cols_to_preserve
         )
 
     flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
@@ -77,11 +81,44 @@ def api_df_to_responses(df):
         )
     )
 
-    flat_view = flattened.select(
-        'created_at', 'user_id', 'subject_id', 'classification_id', 'question', 'response'
-    )
+    flat_view = flattened.select(*cols_to_preserve, 'question', 'response')
 
-    return flat_view.drop_duplicates()  # on all columns
+    # TODO this doesn't work because it wasn't run at first, so state is not saved - needs full re-run
+    # flat_view = flat_view.drop_duplicates()  # on all columns
+
+    # define unique id for each question-response event
+
+    # flat_view = flat_view.withColumn('hello', lit('world'))
+    # flat_view = flat_view.withColumn('hello_again', lit('world'))
+    # flat_view = flat_view.withColumn(
+    #     'hello_thrice',
+    #     sum(
+    #         [flat_view[col] for col in ['hello', 'hello_again']]
+    #         )
+    #     )
+    # flat_view = flat_view.withColumn('hello_twice', flat_view['hello'] + flat_view['hello_again'])
+
+    # flat_view = flat_view.withColumn(
+    #     'response_id_str',
+    #     flat_view['classification_id'] + flat_view['question'] + flat_view['response']
+    # )
+    # flat_view = flat_view.withColumn(
+    #     'response_id',
+    #     udf(get_uuid_from_str)(df['response_id_str'])
+    # )
+    # flat_view.drop('response_id_str')
+
+    return flat_view
+# 34126
+
+def get_uuid_from_str(x: str):
+    if not isinstance(x, str):
+        raise TypeError('Expected str, got {} ({})'.format(x, type(x)))
+    return uuid.uuid5(uuid.NAMESPACE_DNS, x)
+# zlib.adler32('hello'.encode())
+
+# def get_uuid_from_columns(*cols):
+#     return get_uuid_from_str(reduce(lambda x, y: x + y, cols))
 
 def stream(input_dir, output_dir, print_status=False, spark=None):
     if not spark:
@@ -102,17 +139,19 @@ def stream(input_dir, output_dir, print_status=False, spark=None):
     query = flat_df.writeStream \
         .outputMode('append') \
         .option('checkpointLocation', os.path.join(output_dir, 'checkpoints')) \
+        .trigger(processingTime='3 seconds') \
         .start(path=output_dir, format='json')
     
     if print_status:
         while True:
-            time.sleep(0.1)
+            time.sleep(0.2)
             if query.status['isDataAvailable']:
                 print(datetime.datetime.now(), query.status['message'])
 
 if __name__ == '__main__':
 
     stream(
-        input_dir='data/streaming/derived_output', 
-        output_dir='data/streaming/flat_output'
+        input_dir='temp/derived', 
+        output_dir='temp/flat',
+        print_status=True
     )

@@ -4,6 +4,7 @@ import os
 import shutil
 import logging
 import time
+import tempfile
 from datetime import datetime, timedelta
 from typing import Any, List, Tuple, TypeVar, Dict
 from functools import lru_cache
@@ -26,7 +27,7 @@ if not os.path.exists(ZOONIVERSE_LOGIN_LOC):
 
 
 def get_latest_classifications(save_dir, max_classifications, previous_dir=None, manual_last_id=None) -> None:
-    """Download classifications from the Panoptes API
+    """Download classifications from the Panoptes API (from all workflows)
 
     Downloaded classifications will be saved as a new 'chunk'
     .txt file with first and last id in the filename and data as json line-seperated rows
@@ -83,7 +84,8 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
     pbar = tqdm(total=max_classifications)
     
     min_time = timedelta(seconds=(1./max_rate_per_sec))
-    classifications_in_file = 0
+    atomic_file = AtomicFile(save_dir)
+
     while classification_n < max_classifications:
         try:  # may possibly be requesting the very first classification twice, not clear how - TODO test
             initial_time = datetime.now()
@@ -95,12 +97,7 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
             subject = get_subject(subject_id) # assume id is unique, and hence only one match is possible
             classification['links']['subject'] = subject.raw
 
-            save_classification_to_file(classification, save_loc)
-
-            classifications_in_file += 1
-            if classifications_in_file >= per_file:
-                save_loc = get_save_loc(save_dir)
-                classifications_in_file = 0
+            atomic_file.add(classification)
 
             time_elapsed = datetime.now() - initial_time
             if time_elapsed < min_time:
@@ -110,41 +107,59 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
 
         except StopIteration:  # all retrieved
             logging.info('All classifications retrieved')
-            break
-
+            
         if int(classification['id']) > latest_id:
             latest_id = int(classification['id'])
 
         pbar.update()
         classification_n += 1
 
+    atomic_file.end_file()  # write anything left
     pbar.close()
     return latest_id
+
+class AtomicFile():
+    """Atomic for Spark (saves each batch of n classifications in one operation)"""
+
+    def __init__(self, save_dir, per_file = 5000):
+        self.save_dir = save_dir
+        self.temp_loc = os.path.join('/tmp', 'temp_file')
+        if os.path.isfile(self.temp_loc):
+            os.remove(self.temp_loc)
+        self.temp_file = open(self.temp_loc, 'a+')
+        self.per_file = per_file
+        self.classifications_in_file = 0
+
+    def add(self, classification):
+        self.write_to_temp(classification)
+        self.classifications_in_file += 1
+        if self.classifications_in_file >= self.per_file:
+            logging.info('Max per file {} reached, saving'.format(self.per_file))
+            self.end_file()
+
+    def write_to_temp(self, classification) -> None:
+        """Save the API response to a file of json's seperated by newlines.
+        If no such file exists, start one.
+        
+        Args:
+            classification ([type]): [description]
+        """
+        assert classification
+        json.dump(classification, self.temp_file)
+        self.temp_file.write('\n')
+
+    def end_file(self):
+        save_loc = get_save_loc(self.save_dir)
+        logging.info('Atomic save to {}'.format(save_loc))
+        os.rename(self.temp_loc, save_loc)
+        self.classifications_in_file = 0
+
+
 
 @lru_cache(maxsize=2**18)
 def get_subject(subject_id):
     return Subject.find(subject_id)
 
-def save_classification_to_file(classification, save_loc) -> None:
-    """Save the API response to a file of json's seperated by newlines.
-    If no such file exists, start one.
-    Atomic for Spark (saves each classification one at a time)
-    
-    Args:
-        classification ([type]): [description]
-        save_loc ([type]): [description]
-    """
-    assert classification
-    assert save_loc
-
-    if os.path.exists(save_loc):
-        append_write = 'a' # append if already exists
-    else:
-        append_write = 'w' # make a new file if not
-
-    with open(save_loc, append_write) as f:
-        json.dump(classification, f)
-        f.write('\n')    
 
 
 def get_save_loc(save_dir):

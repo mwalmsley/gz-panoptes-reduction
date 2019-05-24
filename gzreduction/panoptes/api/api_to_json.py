@@ -124,14 +124,17 @@ class AtomicFile():
 
     def __init__(self, save_dir, per_file=2500):
         self.save_dir = save_dir
+        self.temp_file = self.new_temp_file()
+        self.per_file = per_file
+        self.classifications_in_file = 0
+
+    def new_temp_file(self):
         self.temp_loc = os.path.join('temp_download_folder', 'temp_file')
         if not os.path.isdir('temp_download_folder'):
             os.mkdir('temp_download_folder')
         if os.path.isfile(self.temp_loc):
             os.remove(self.temp_loc)
-        self.temp_file = open(self.temp_loc, 'a+')
-        self.per_file = per_file
-        self.classifications_in_file = 0
+        return open(self.temp_loc, 'a+')
 
     def add(self, classification):
         self.write_to_temp(classification)
@@ -139,6 +142,7 @@ class AtomicFile():
         if self.classifications_in_file >= self.per_file:
             logging.info('Max per file {} reached, saving'.format(self.per_file))
             self.end_file()
+            self.temp_file = self.new_temp_file()
 
     def write_to_temp(self, classification) -> None:
         """Save the API response to a file of json's seperated by newlines.
@@ -154,6 +158,7 @@ class AtomicFile():
     def end_file(self):
         save_loc = get_save_loc(self.save_dir)
         logging.info('Atomic save to {}'.format(save_loc))
+        assert os.path.exists(self.temp_loc)
         os.rename(self.temp_loc, save_loc)
         self.classifications_in_file = 0
 

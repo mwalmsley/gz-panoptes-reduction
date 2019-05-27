@@ -163,7 +163,7 @@ def start_flat_stream(derived_dir, flat_dir, spark):
 
 
 # debug from here
-def get_new_aggregation_demo(workflow_ids=['6122', '10582']):
+def get_new_aggregation_demo(workflow_ids=['6122', '10581', '10582']):
     working_dir = 'temp'
     if os.path.isdir(working_dir):
         shutil.rmtree(working_dir)
@@ -174,7 +174,7 @@ def get_new_aggregation_demo(workflow_ids=['6122', '10582']):
     volunteers.aggregate()
 
 
-def get_new_reduction(working_dir, workflow_ids=['6122', '10582'], max_classifications=1e8):
+def get_new_reduction(working_dir, workflow_ids=['6122', '10581', '10582'], max_classifications=1e8):
     volunteers = Volunteers(working_dir, workflow_ids, max_classifications)  # no max classifications, will be long-running
     classification_df = volunteers.get_all_classifications(max_age=None)
     classification_df.to_csv(os.path.join(working_dir, 'classifications.csv'), index=False)

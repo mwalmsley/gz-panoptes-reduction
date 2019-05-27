@@ -53,6 +53,14 @@ def api_df_to_responses(df):
         'classification_id'
     ]
 
+    # make sure these are cast to String, not ints
+    for col in cols_to_preserve:
+        if col is not 'created_at':
+            df = df.withColumn(
+                col,
+                df[col].cast(StringType())
+            )
+
     exploded = df.select(
         explode('annotations').alias('annotations_struct'),
         *cols_to_preserve

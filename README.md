@@ -9,7 +9,22 @@ Use this repo to convert Galaxy Zoo citizen scientist responses, from Ouroborous
 
 Responses can be provided as exports (Panoptes or Ouroborous) or downloaded through API calls (Panoptes only).
 
-# Reduction
+# Updated Instructions
+
+    cd /data/programs
+    ./elasticsearch*/bin/elasticsearch
+
+    cd /data/programs
+    ./kibana*/bin/kibana
+
+    cd /data/programs
+    ./logstash*/bin/logstash -f /data/programs/logstash*/test.conf
+
+Make sure that disk has >50GB space, or elasticsearch will fail
+
+Excellent tutorial: https://www.elastic.co/blog/a-practical-introduction-to-logstash
+
+# Reduction - OUT OF DATE BELOW HERE USE main.py INSTEAD
 
 ## Reduction to Single Votes
 

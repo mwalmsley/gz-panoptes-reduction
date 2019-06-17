@@ -4,6 +4,7 @@ import time
 import datetime
 import shutil
 import json
+from typing import List
 from multiprocessing import Process
 import argparse
 
@@ -17,7 +18,7 @@ from gzreduction import flatten, aggregate
 
 class Volunteers():
 
-    def __init__(self, working_dir, workflow_ids, max_classifications):
+    def __init__(self, working_dir: str, workflow_ids: List, max_classifications: int):
         self.raw_dir = os.path.join(working_dir, 'raw')  
         self.derived_dir = os.path.join(working_dir, 'derived')  # can hopefully put checkpoints in same directory: x/checkpoints
         self.flat_dir = os.path.join(working_dir, 'flat')
@@ -110,14 +111,14 @@ class Volunteers():
         return classification_df
 
 
-def join_subjects_and_aggregated(subject_df, aggregated_loc):
+def join_subjects_and_aggregated(subject_df, aggregated_loc: str):
     logging.info('Aggregated Predictions: {}'.format(len(aggregated_loc)))
     logging.info('Subjects: {}'.format(len(subject_df)))
     df = pd.merge(aggregated_loc, subject_df, on='subject_id', how='inner')
     return df
 
 
-def start_panoptes_listener(save_dir, max_classifications):
+def start_panoptes_listener(save_dir: str, max_classifications: int):
     # needs to run in separate process
     p = Process(
             target=api_to_json.get_latest_classifications, 
@@ -132,7 +133,7 @@ def start_panoptes_listener(save_dir, max_classifications):
     return p  # let it run without joining! 
 
 
-def start_subject_stream(raw_dir, output_dir, workflow_ids, spark):
+def start_subject_stream(raw_dir: str, output_dir: str, workflow_ids: List, spark):
     panoptes_to_subjects.run(
             raw_dir,
             output_dir,
@@ -142,7 +143,7 @@ def start_subject_stream(raw_dir, output_dir, workflow_ids, spark):
         )
 
 
-def start_derived_stream(raw_dir, derived_dir, workflow_ids, spark):
+def start_derived_stream(raw_dir: str, derived_dir: str, workflow_ids: List, spark):
     return reformat_api_like_exports.derive_chunks(
         workflow_ids=workflow_ids,  # GZ decals workflow, TODO will change to priority workflow
         raw_classification_dir=raw_dir,
@@ -174,7 +175,7 @@ def get_new_aggregation_demo(workflow_ids=['6122', '10581', '10582']):
     volunteers.aggregate()
 
 
-def get_new_reduction(working_dir, workflow_ids=['6122', '10581', '10582'], max_classifications=1e8):
+def get_new_reduction(working_dir: str, workflow_ids=['6122', '10581', '10582'], max_classifications=1e8):
     volunteers = Volunteers(working_dir, workflow_ids, max_classifications)  # no max classifications, will be long-running
     classification_df = volunteers.get_all_classifications(max_age=None)
     classification_df.to_csv(os.path.join(working_dir, 'classifications.csv'), index=False)

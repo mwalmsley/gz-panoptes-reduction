@@ -158,11 +158,6 @@ def start_flat_stream(derived_dir, flat_dir, spark):
     return flatten.stream(derived_dir, flat_dir, print_status=False, spark=spark)
 
 
-
-
-
-
-
 # debug from here
 def get_new_aggregation_demo(workflow_ids=['6122', '10581', '10582']):
     working_dir = 'temp'

@@ -1,12 +1,9 @@
 import logging
 import os
-import time
-import datetime
 import functools
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf, count
-from pyspark.sql.types import TimestampType, BooleanType, StringType, IntegerType
+from pyspark.sql.functions import lit, udf, count
 
 from gzreduction.panoptes.panoptes_to_responses import sanitise_string
 from gzreduction.schemas.dr5_schema import dr5_schema
@@ -14,7 +11,7 @@ from gzreduction.schemas.dr5_schema import dr5_schema
 def responses_to_reduced_votes(flat_df):
 
     # should already be done but just in case
-    flat_df = flat_df.drop_duplicates(subset=['classification_id'])
+    flat_df = flat_df.drop_duplicates(subset=['classification_id', 'question', 'response'])
 
     # aggregate by creating question_response pairs, grouping, pivoting, and summing
     join_string_udf = udf(lambda x, y: x + '_' + y)

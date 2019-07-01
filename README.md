@@ -11,6 +11,12 @@ Responses can be provided as exports (Panoptes or Ouroborous) or downloaded thro
 
 # Updated Instructions
 
+To get new downloads:
+
+    /data/miniconda3/envs/gz-panoptes/bin/python /Data/repos/gzreduction/gzreduction/main.py
+
+To add them to elasticsearch and visualise with Kibana:
+
     cd /data/programs
     ./elasticsearch*/bin/elasticsearch
 
@@ -20,7 +26,9 @@ Responses can be provided as exports (Panoptes or Ouroborous) or downloaded thro
     cd /data/programs
     ./logstash*/bin/logstash -f /data/programs/logstash*/test.conf
 
-Make sure that disk has >50GB space, or elasticsearch will fail
+Make sure that disk has >50GB space, or elasticsearch will fail.
+
+
 
 Excellent tutorial: https://www.elastic.co/blog/a-practical-introduction-to-logstash
 

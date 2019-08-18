@@ -24,7 +24,7 @@ Make sure that disk has >50GB space, or elasticsearch will fail
 
 Excellent tutorial: https://www.elastic.co/blog/a-practical-introduction-to-logstash
 
-# Reduction - OUT OF DATE BELOW HERE USE main.py INSTEAD
+# Reduction - OUT OF DATE BELOW HERE USE main.py INSTEAD, from repo root: `python gzreduction/main.py`
 
 ## Reduction to Single Votes
 

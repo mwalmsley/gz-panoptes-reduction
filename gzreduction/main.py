@@ -41,10 +41,16 @@ class Volunteers():
         assert isinstance(workflow_ids, list)
         self.workflow_ids = workflow_ids
         self.max_classifications = max_classifications  # for debugging
-        # if on ec2, ...
+        
+        # if on EC2, use all cores, else, use 3 (so I can still work while it runs) 
+        # TODO hacky, should be an arg?
+        n_cores = '*'
+        if os.path.isdir('/data/repos'):
+            n_cores = 3
+        
         self.spark = SparkSession \
             .builder \
-            .master('local[*]') \
+            .master('local[{}]'.format(n_cores)) \
             .appName("volunteers_shared") \
             .getOrCreate()
 

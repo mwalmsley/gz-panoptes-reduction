@@ -31,5 +31,5 @@ data/predictions
 data/preprocessed
 data/votes
 data/streaming
-temp/*
+temp
 temp_download_folder

@@ -11,6 +11,12 @@ Responses can be provided as exports (Panoptes or Ouroborous) or downloaded thro
 
 # Updated Instructions
 
+To get a new reduction, simly run (from the repo root):
+
+    python gzreduction/main.py
+
+To visualise progress on the elasticsearch dashboard, run:
+
     cd /data/programs
     ./elasticsearch*/bin/elasticsearch
 

@@ -19,6 +19,13 @@ from gzreduction import flatten, aggregate
 class Volunteers():
 
     def __init__(self, working_dir: str, workflow_ids: List, max_classifications: int):
+        """Retrieve and aggregate volunteer responses from Panoptes
+        
+        Args:
+            working_dir (str): Root directory of results. Streaming progress state is here.
+            workflow_ids (List): Download and clean responses from these workflows
+            max_classifications (int): Download no more than max_classifications responses (e.g. 1e10)
+        """
         self.raw_dir = os.path.join(working_dir, 'raw')  
         self.derived_dir = os.path.join(working_dir, 'derived')  # can hopefully put checkpoints in same directory: x/checkpoints
         self.flat_dir = os.path.join(working_dir, 'flat')
@@ -27,17 +34,23 @@ class Volunteers():
             if not os.path.isdir(directory):
                 os.mkdir(directory)
 
-        self.metadata_loc = os.path.join(working_dir, 'metadata.json')
-        self.aggregated_loc = os.path.join(working_dir, 'aggregated.parquet')
-        self.classification_loc = os.path.join(working_dir, 'classifications.csv')
+        self.metadata_loc = os.path.join(working_dir, 'metadata.json')  # e.g. to record last execution time
+        self.aggregated_loc = os.path.join(working_dir, 'aggregated.parquet')  # aggregated responses
+        self.classification_loc = os.path.join(working_dir, 'classifications.csv')  # aggregated responses joined to subject table
 
         assert isinstance(workflow_ids, list)
         self.workflow_ids = workflow_ids
         self.max_classifications = max_classifications  # for debugging
-        # if on ec2, ...
+        
+        # if on EC2, use all cores, else, use 3 (so I can still work while it runs) 
+        # TODO hacky, should be an arg?
+        n_cores = '*'
+        if os.path.isdir('/data/repos'):
+            n_cores = 3
+        
         self.spark = SparkSession \
             .builder \
-            .master('local[*]') \
+            .master('local[{}]'.format(n_cores)) \
             .appName("volunteers_shared") \
             .getOrCreate()
 
@@ -158,24 +171,27 @@ def start_flat_stream(derived_dir, flat_dir, spark):
     return flatten.stream(derived_dir, flat_dir, print_status=False, spark=spark)
 
 
+# debug utility method, not used in production
+# def get_new_aggregation_demo(workflow_ids=['6122', '10581', '10582']):
+#     working_dir = 'temp'
+#     if os.path.isdir(working_dir):
+#         shutil.rmtree(working_dir)
+#     os.mkdir(working_dir)
 
+#     volunteers = Volunteers(working_dir, workflow_ids, max_classifications=100)
+#     volunteers.listen(blocking=True)
+#     volunteers.aggregate()
 
-
-
-
-# debug from here
-def get_new_aggregation_demo(workflow_ids=['6122', '10581', '10582']):
-    working_dir = 'temp'
-    if os.path.isdir(working_dir):
-        shutil.rmtree(working_dir)
-    os.mkdir(working_dir)
-
-    volunteers = Volunteers(working_dir, workflow_ids, max_classifications=100)
-    volunteers.listen(blocking=True)
-    volunteers.aggregate()
 
 
 def get_new_reduction(working_dir: str, workflow_ids=['6122', '10581', '10582'], max_classifications=1e8):
+    """By default, pull responses from all GZ workflows and aggregate together.
+    
+    Args:
+        working_dir (str): [description]
+        workflow_ids (list, optional): [description]. Defaults to ['6122', '10581', '10582'].
+        max_classifications ([type], optional): [description]. Defaults to 1e8.
+    """
     volunteers = Volunteers(working_dir, workflow_ids, max_classifications)  # no max classifications, will be long-running
     classification_df = volunteers.get_all_classifications(max_age=None)
     classification_df.to_csv(os.path.join(working_dir, 'classifications.csv'), index=False)
@@ -186,13 +202,15 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
 
     parser = argparse.ArgumentParser('Reduction')
+    parser.add_argument(
+        '--working_dir',
+        dest='working_dir',
+        type=str,
+        default='../zoobot/data/decals/classifications/streaming'
+    )
     parser.add_argument('--max', dest='max_classifications', type=int, default=None)
 
-
     # get_new_reduction_demo()
-
-    working_dir = '../zoobot/data/decals/classifications/streaming'
-    # working_dir = 'temp'
 
     args = parser.parse_args()
     if args.max_classifications:
@@ -200,6 +218,9 @@ if __name__ == '__main__':
     else:
         max_classifications = 1e8
         # max_classifications = 100
+
+    # working_dir = 'temp'
+    working_dir = args.working_dir
 
     get_new_reduction(working_dir, max_classifications=max_classifications)
 

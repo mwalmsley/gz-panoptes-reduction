@@ -85,12 +85,6 @@ From here, it's easy to play more - for example, to load them into a dashboard..
 
 To add GZ responses to elasticsearch and visualise with Kibana:
 
-To get a new reduction, simly run (from the repo root):
-
-    python gzreduction/main.py
-
-To visualise progress on the elasticsearch dashboard, run:
-
     cd /data/programs
     ./elasticsearch*/bin/elasticsearch
 

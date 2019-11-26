@@ -97,18 +97,18 @@ class Volunteers():
             .getOrCreate()
 
         aggregated_df = self.aggregate()
-        print('Aggregation complete')
-        # print('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))
+        logging.info('Aggregation complete')
+        # logging.info('Aggregation complete, saving {} galaxies'.format(aggregated_df.count()))
         aggregated_df.write.save(self.aggregated_loc, mode='overwrite')
-        print('Aggregation saved')
+        logging.info('Aggregation saved')
 
         # will now switch to pandas in-memory
         aggregated_df = pd.read_parquet(self.aggregated_loc)
         subject_df = self.spark.read.json(self.subject_dir).drop_duplicates().toPandas()
-        print('Aggregated: {}. Subjects: {}'.format(len(aggregated_df), len(subject_df)))
+        logging.info('Aggregated: {}. Subjects: {}'.format(len(aggregated_df), len(subject_df)))
 
         classification_df = join_subjects_and_aggregated(subject_df, aggregated_df)
-        print('Classification complete')
+        logging.info('Classification complete')
         classification_df.to_csv(self.classification_loc, index=False)
         with open(self.metadata_loc, 'w') as f:
             json.dump(
@@ -119,7 +119,7 @@ class Volunteers():
                 },
                 f
             )
-        print('Classifications saved')
+        logging.info('Classifications saved')
         
         return classification_df
 

@@ -171,19 +171,6 @@ def start_flat_stream(derived_dir, flat_dir, spark):
     return flatten.stream(derived_dir, flat_dir, print_status=False, spark=spark)
 
 
-# debug utility method, not used in production
-# def get_new_aggregation_demo(workflow_ids=['6122', '10581', '10582']):
-#     working_dir = 'temp'
-#     if os.path.isdir(working_dir):
-#         shutil.rmtree(working_dir)
-#     os.mkdir(working_dir)
-
-#     volunteers = Volunteers(working_dir, workflow_ids, max_classifications=100)
-#     volunteers.listen(blocking=True)
-#     volunteers.aggregate()
-
-
-
 def get_new_reduction(working_dir: str, workflow_ids=['6122', '10581', '10582'], max_classifications=1e8):
     """By default, pull responses from all GZ workflows and aggregate together.
     
@@ -210,7 +197,6 @@ if __name__ == '__main__':
     )
     parser.add_argument('--max', dest='max_classifications', type=int, default=None)
 
-    # get_new_reduction_demo()
 
     args = parser.parse_args()
     if args.max_classifications:
@@ -223,7 +209,3 @@ if __name__ == '__main__':
     working_dir = args.working_dir
 
     get_new_reduction(working_dir, max_classifications=max_classifications)
-
-    # start getting classifications, but in another process (not blocking)
-    # spark streams will catch up
-    # spark streams should all be non-blocking, except perhaps the last (could instead block here?)

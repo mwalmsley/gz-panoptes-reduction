@@ -59,7 +59,13 @@ def run(input_dir, spark=None):
         raise ValueError('No JSON files found to be aggregated - check flat pipeline output?')
 
     print('Reading flattened responses')
-    flat_df = spark.read.json(input_dir)
+    this_dir = os.path.dirname(os.path.realpath(__file__))
+    # infer schema from existing file
+    example_loc = os.path.join(this_dir, '../data/examples/panoptes_flat.json')
+    assert os.path.exists(example_loc)
+    schema = spark.read.json(example_loc).schema
+
+    flat_df = spark.read.json(input_dir, schema=schema)
     print('Total responses: {}'.format(flat_df.count()))
 
     print('Reducing responses')

@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Reduction')
     parser.add_argument(
-        '--working_dir',
+        '--working-dir',
         dest='working_dir',
         type=str,
         default='../zoobot/data/decals/classifications/streaming'

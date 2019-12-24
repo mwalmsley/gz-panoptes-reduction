@@ -188,6 +188,13 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
 
+    # if you're not Mike, you'll need to change this. 
+    # only necessary when running over ssh via airflow - not quite sure why
+    # probably there are ways to run spark more directly e.g. spark-submit?
+    hardcoded_python = '/data/miniconda3/envs/zoobot/lib/python3.6'
+    os.environ['PYSPARK_PYTHON'] = hardcoded_python
+    os.environ['PYSPARK_DRIVER_PYTHON'] = hardcoded_python
+
     parser = argparse.ArgumentParser('Reduction')
     parser.add_argument(
         '--working-dir',

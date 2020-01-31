@@ -95,6 +95,10 @@ To add GZ responses to elasticsearch and visualise with Kibana:
     ./logstash*/bin/logstash -f /data/programs/logstash*/test.conf
 
 Make sure that disk has >50GB space, or elasticsearch will fail.
+If your disk has <50GB space, elasticsearch will set your db as read-only and you'll get 403 forbidden errors.
+To fix, make more space and then (run)[https://stackoverflow.com/questions/50609417/elasticsearch-error-cluster-block-exception-forbidden-12-index-read-only-all]:
+
+   curl -XPUT -H "Content-Type: application/json" http://localhost:9200/_all/_settings -d '{"index.blocks.read_only_allow_delete": null}'
 
 Excellent tutorial: https://www.elastic.co/blog/a-practical-introduction-to-logstash
 

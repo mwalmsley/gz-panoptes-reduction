@@ -30,7 +30,8 @@ Could be a good hack day project to refactor out the live streaming code...
     pip install -e gzreduction
 
 Uses Spark, which relies on a slightly old java version. 
-If you get weird java errors, check the Spark docs.
+
+If you get weird java errors, check the Spark docs. Possibility oculd be that your java version is not correct. Spark uses Java 8. Check using: `java -version`. Download the correct Java Development Kit (JDK) from: https://www.oracle.com/java/technologies/javase-downloads.html (so version 8u251, not version 14!). Also check all installed Java version using `/usr/libexec/java_home -V` to make sure only version 8 is there. If another version is there, uninstall it. Go to folder where it is installed (default: /Library/Java/JavaVirtualMachines) and choose version you want to uninstall (e.g. jdk-14.jdk). Then, in terminal, do: `sudo rm -rf jdk-14.jdk`. Check again if the correct version of Java is active.
 
 Creating a live dashboard (optional) will also require logstash/elasticsearch/kibana, and more setup.
 Probably best not to try to do this for your own project unless you know what you're doing.

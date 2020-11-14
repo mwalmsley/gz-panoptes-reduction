@@ -86,17 +86,17 @@ def get_predictions_for_question(df, question):
     df[question.prediction_conf] = df[question.prediction_conf] .fillna(
         value=1./len(question.answers))
 
-    # calculate uncertainty
-    for answer in question.answers:
-        fraction_min_col = question.get_fraction_min_col(answer)
-        fraction_max_col = question.get_fraction_max_col(answer)
+    # calculate uncertainty - disabled as binomial approximation known to have some fairly important failures e.g. on extreme vote fractions, irrelvant answers
+    # for answer in question.answers:
+    #     fraction_min_col = question.get_fraction_min_col(answer)
+    #     fraction_max_col = question.get_fraction_max_col(answer)
 
-        row_iter = [df.iloc[n].to_dict() for n in range(len(df))]
+    #     row_iter = [df.iloc[n].to_dict() for n in range(len(df))]
 
-        votes_series = list(map(lambda x: votes_from_subject_row(x, question=question, answer=answer), row_iter))
+    #     votes_series = list(map(lambda x: votes_from_subject_row(x, question=question, answer=answer), row_iter))
 
-        df[fraction_min_col] = list(map(lambda x: uncertainty.get_min_p_estimate(x, interval=0.8), votes_series))
-        df[fraction_max_col] = list(map(lambda x: uncertainty.get_max_p_estimate(x, interval=0.8), votes_series))
+    #     df[fraction_min_col] = list(map(lambda x: uncertainty.get_min_p_estimate(x, interval=0.8), votes_series))
+    #     df[fraction_max_col] = list(map(lambda x: uncertainty.get_max_p_estimate(x, interval=0.8), votes_series))
 
     return df
 

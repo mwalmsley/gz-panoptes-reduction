@@ -1,12 +1,15 @@
 import logging
 import os
 import functools
+import argparse
 
+import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import lit, udf, count
 
 from gzreduction.panoptes.panoptes_to_responses import sanitise_string
 from gzreduction.schemas.dr5_schema import dr5_schema
+
 
 def responses_to_reduced_votes(flat_df):
 
@@ -79,3 +82,50 @@ def run(input_dir, spark=None):
     return df
 
 
+if __name__ == '__main__':
+
+    # Spark requires Java 8, not 11. Update JAVA_HOME accordingly (will vary by system)
+    os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-8-openjdk-amd64'
+
+    logging.basicConfig(
+        level=logging.INFO
+    )
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input',
+        dest='input_dir',
+        type=str,
+        default='temp/flat/latest_batch_export'
+    )
+    parser.add_argument(
+        '--save-loc',
+        dest='save_loc',
+        type=str,
+        default='temp/latest_aggregated.parquet'
+    )
+    parser.add_argument(
+        '--subjects',
+        dest='subjects_loc',
+        type=str,
+        default=''
+    )
+    args = parser.parse_args()
+    
+    df = run(input_dir=args.input_dir)
+    df = df.toPandas()
+    df['subject_id'] = df['subject_id'].astype(int)
+    # print(df['subject_id'])
+    df.to_parquet(args.save_loc, index=False)
+    logging.info(f'Aggregation saved, {len(df)}')
+
+    if not args.subjects_loc == '':
+        # # will now switch to pandas in-memory
+        subject_df = pd.read_parquet(args.subjects_loc)
+        # print(subject_df['subject_id'])
+        before = len(df)
+        df = pd.merge(df, subject_df, on='subject_id', how='inner')
+        logging.info(f'Found {len(df)} of {before} matching subject ids')
+        df.to_csv(os.path.join(os.path.dirname(args.save_loc), 'classifications.csv'), index=False)
+
+    

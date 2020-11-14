@@ -17,7 +17,7 @@ smooth_or_featured.set_answers([
         raw_name='a-1'),
     Answer(
         name='artifact',
-        raw_name='star or artefact')
+        raw_name='a-2')
     ])
 dr2_schema.add_question(smooth_or_featured)
 

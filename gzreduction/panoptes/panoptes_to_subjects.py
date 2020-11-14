@@ -6,7 +6,8 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import to_timestamp, to_date, lit, explode, udf, count
 from pyspark.sql.types import TimestampType, BooleanType, StringType, IntegerType
 
-
+# this is designed to work on the raw API data
+# use panoptes_export_to_subjects.py for batch-mode export analysis
 def run(raw_dir, output_dir, workflow_ids, spark=None, mode='stream'):
     assert isinstance(workflow_ids, list)
     if not spark:

@@ -34,3 +34,7 @@ data/votes
 data/streaming
 temp
 temp_download_folder
+
+data/expert_classifications_export.csv
+data/*.csv
+data/expert_classifications_export

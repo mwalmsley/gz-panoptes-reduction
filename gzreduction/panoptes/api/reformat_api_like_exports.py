@@ -172,21 +172,19 @@ def derive_directories_with_spark(
             .appName("derive_directories") \
             .getOrCreate()
 
-    # infer schema from existing file
-    tiny_loc = os.path.dirname(os.path.realpath(__file__)) + "/../../../data/examples/panoptes_raw.txt"
-    assert os.path.exists(tiny_loc)
-    schema = spark.read.json(tiny_loc).schema
+
 
     if mode == 'stream':
+            # infer schema from existing file
+        tiny_loc = os.path.dirname(os.path.realpath(__file__)) + "/../../../data/examples/panoptes_raw.txt"
+        assert os.path.exists(tiny_loc)
+        schema = spark.read.json(tiny_loc).schema
         logging.warning('Attempting to stream derived files to {}'.format(input_dir))
         df = spark.readStream.json(input_dir, schema=schema)
     else:
-        df = spark.read.json(input_dir, schema=schema)
+        df = spark.read.json(input_dir)
 
     df = df.filter(df['links']['workflow'].isin(list(workflows.keys())))  # include only allowed workflows
-
-    # TODO this doesn't work because it wasn't run at first, so state is not saved - needs full re-run
-    # df = df.drop_duplicates(subset=['id'])  # classification id is unique. Unlike pandas, keeps one row.
 
     df = clarify_workflow_version(df)
     df = rename_metadata_like_exports(df)
@@ -255,8 +253,13 @@ def derive_chunks(workflow_ids: list, raw_classification_dir: str, output_dir: s
     derive_directories_with_spark(raw_classification_dir, output_dir, workflows, mode, print_status)
 
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 
-#     workflow_id = '6122'  # GZ decals workflow
-#     raw_classification_dirs = 'data/streaming/input'
-#     derive_chunks(workflow_id, raw_classification_dirs, 'data/streaming/derived_output', mode='stream', blocking=True, print_status=True)
+    workflow_id = ['12410']  # GZ decals workflow
+    raw_classification_dirs = 'temp/raw'
+
+    spark = SparkSession \
+        .builder \
+        .appName("shared") \
+        .getOrCreate()
+    derive_chunks(workflow_id, raw_classification_dirs, 'temp/derived', mode='batch', print_status=True, spark=spark)

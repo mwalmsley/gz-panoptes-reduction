@@ -1,6 +1,6 @@
 import os
 
-working_dir = 'data'
+working_dir = '/media/walml/beta/galaxy_zoo/decals/gzreduction_ouroborous/working_dir'
 
 export_date = '2019-04-02'
 

@@ -66,7 +66,6 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
         int: last id downloaded
     """
     assert save_dir
-    save_loc = get_save_loc(save_dir)  # will be updated every 10k classifications, to trigger Spark
 
     with open(ZOONIVERSE_LOGIN_LOC, 'r') as f:
         zooniverse_login = json.load(f)
@@ -91,6 +90,7 @@ def get_classifications(save_dir, max_classifications=None, last_id=None, projec
             initial_time = datetime.now()
             classification = classifications.next().raw  # raw is the actual data
 
+            # minor tweaks for convenience
             # replace subject id with subject information from API
             subject_id = classification['links']['subjects'][0]  # only works for single-subject projects
             del classification['links']['subjects']
@@ -129,9 +129,10 @@ class AtomicFile():
         self.classifications_in_file = 0
 
     def new_temp_file(self):
-        self.temp_loc = os.path.join('temp_download_folder', 'temp_file')
-        if not os.path.isdir('temp_download_folder'):
-            os.mkdir('temp_download_folder')
+        self.temp_dir = os.path.join(self.save_dir, 'temp_download_folder')
+        self.temp_loc = os.path.join(self.temp_dir, 'temp_file')
+        if not os.path.isdir(self.temp_dir):
+            os.mkdir(self.temp_dir)
         if os.path.isfile(self.temp_loc):
             os.remove(self.temp_loc)
         return open(self.temp_loc, 'a+')

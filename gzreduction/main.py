@@ -15,7 +15,6 @@ from gzreduction.panoptes.api import api_to_json, reformat_api_like_exports
 from gzreduction.panoptes import panoptes_to_subjects
 from gzreduction import flatten, aggregate
 
-
 class Volunteers():
 
     def __init__(self, working_dir: str, workflow_ids: List, max_classifications: int):
@@ -186,7 +185,15 @@ def get_new_reduction(working_dir: str, workflow_ids=['6122', '10581', '10582'],
 
 if __name__ == '__main__':
 
+    """
+    
+    python gzreduction/main.py --working-dir /media/walml/beta/decals/results/expert_labels
+    """
+
     logging.basicConfig(level=logging.INFO)
+
+    # Spark requires Java 8, not 11. Update JAVA_HOME accordingly (will vary by system)
+    os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-8-openjdk-amd64'
 
     # if you're not Mike, you'll need to change this. 
     # only necessary when running over ssh via airflow - not quite sure why
@@ -216,4 +223,4 @@ if __name__ == '__main__':
     # working_dir = 'temp'
     working_dir = args.working_dir
 
-    get_new_reduction(working_dir, max_classifications=max_classifications)
+    get_new_reduction(working_dir, max_classifications=max_classifications, workflow_ids=['12410'])  # internal expert classifications

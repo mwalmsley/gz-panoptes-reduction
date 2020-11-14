@@ -36,13 +36,13 @@ def votes_to_predictions(votes, schema, reduced_save_loc=None, predictions_save_
 if __name__ == '__main__':
 
     logging.basicConfig(
-        filename='votes_to_predictions.log',
+        # filename='votes_to_predictions.log',
         format='%(asctime)s %(message)s',
-        filemode='w',
+        # filemode='w',
         level=logging.DEBUG)
 
-    new_panoptes = True
-    new_ouroborous = False
+    new_panoptes = False
+    new_ouroborous = True
 
     if new_panoptes:
         logging.info('Creating new Panoptes predictions from {}'.format(settings.panoptes_votes_loc))

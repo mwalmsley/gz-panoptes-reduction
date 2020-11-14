@@ -5,6 +5,7 @@ import time
 import datetime
 # import uuid
 import zlib
+import argparse
 
 from pyspark.sql import SparkSession
 
@@ -41,10 +42,15 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 
 def api_df_to_responses(df):
 
+    df.select('created_at').show()
     df = df.withColumn('created_at', to_timestamp(df['created_at']))
+    print(df['created_at'])
     start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
+    df.select('created_at').show()
+    print(start_date)
+    print(df.count())
     df = df.filter(df['created_at'] > start_date)  # requires pyspark > 2.2 or fails silently, removing all rows...
-
+    print(df.count())
     cols_to_preserve = [
         'created_at',
         'workflow_id',
@@ -70,8 +76,10 @@ def api_df_to_responses(df):
         *cols_to_preserve
         )
 
+    print(flattened.count())
     flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
-    flattened = flattened.filter(flattened['value'] != 'No')
+    print(flattened.count())
+    # flattened = flattened.filter(flattened['value'] != 'No')  # this bothers me, can't work out why this should be here. Luckily, with caps, never did anything?
 
     # https://docs.databricks.com/spark/latest/spark-sql/udf-python.html
     flattened = flattened.withColumn('cleaned_response', sanitise_string_udf(flattened['value']))
@@ -125,6 +133,12 @@ def api_df_to_responses(df):
 # 34126
 
 def get_unique_int_from_three_strings(x: str, y: str, z: str):
+    if x is None:
+        x = 'error_x'
+    if y is None:
+        y = 'error_y'
+    if z is None:
+        z = 'error_z'
     concat = x + y + z
     return zlib.adler32(concat.encode())
 get_unique_int_from_three_strings_udf = udf(get_unique_int_from_three_strings)
@@ -166,10 +180,58 @@ def stream(input_dir, output_dir, print_status=False, spark=None):
             if query.status['isDataAvailable']:
                 print(datetime.datetime.now(), query.status['message'])
 
+
+def batch(input_dir, output_dir, spark=None):
+    if not spark:
+        spark = SparkSession \
+        .builder \
+        .appName("shared") \
+        .getOrCreate()
+
+    # if os.path.isdir(output_dir)
+    #     shutil.rmtree(output_dir)
+    this_dir = os.path.dirname(os.path.realpath(__file__))
+    # infer schema from existing file
+    example_loc = os.path.join(this_dir, '../data/examples/panoptes_derived.json')
+    assert os.path.exists(example_loc)
+
+    
+    schema = spark.read.json(example_loc).schema
+    
+    df = spark.read.json(input_dir, schema=schema)
+    df.show()
+    # print(df.count())
+    flat_df = api_df_to_responses(df)
+    flat_df.write.json(output_dir)
+
+
 if __name__ == '__main__':
 
-    stream(
-        input_dir='temp/derived', 
-        output_dir='temp/flat',
-        print_status=True
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--input',
+        dest='input_dir',
+        type=str,
+        default='temp/raw'
+    )
+    parser.add_argument(
+        '--save-dir',
+        dest='save_dir',
+        type=str,
+        default='temp/flat/latest_batch_export'
+    )
+    args = parser.parse_args()
+
+    # Spark requires Java 8, not 11. Update JAVA_HOME accordingly (will vary by system)
+    os.environ['JAVA_HOME'] = '/usr/lib/jvm/java-8-openjdk-amd64'
+
+    # stream(
+    #     input_dir='temp/derived', 
+    #     output_dir='temp/flat',
+    #     print_status=True
+    # )
+    
+    batch(
+        input_dir=args.input_dir, 
+        output_dir=args.save_dir
     )

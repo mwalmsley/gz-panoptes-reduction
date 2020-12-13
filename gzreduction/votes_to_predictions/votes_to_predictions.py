@@ -23,7 +23,7 @@ def votes_to_predictions(votes, schema, reduced_save_loc=None, predictions_save_
     """
 
     aggregated = reduce_votes.reduce_all_questions(
-        votes, schema, save_loc=reduced_save_loc)
+        votes, schema, ignore_users=True, save_loc=reduced_save_loc)
 
     logging.debug(aggregated.columns.values)
 

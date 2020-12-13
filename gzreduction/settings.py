@@ -33,6 +33,8 @@ panoptes_aggregated_votes_loc = os.path.join(working_dir, 'votes/{}_panoptes_agg
 # panoptes data transformed into prediction table
 panoptes_predictions_loc = os.path.join(working_dir, 'predictions/{}_panoptes_predictions.csv'.format(export_date))
 
+users_to_ignore_loc = '/home/walml/repos/zoobot/notebooks/catalogs/unlikely_users_dr2.csv'
+
 
 """
 Subject data

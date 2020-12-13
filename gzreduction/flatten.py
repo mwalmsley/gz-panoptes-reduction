@@ -20,16 +20,17 @@ def get_question(task_id, schema):
     try:
         question = schema.get_question_from_raw_name(task_id)
     except IndexError:
-        logging.critical('Question "{}" not found in schema'.format(task_id))
+        raise ValueError('Question "{}" not found in schema'.format(task_id))
         return None
     return question.name
+
 
 def get_answer(task_id, cleaned_response, schema):
     try:
         question = schema.get_question_from_raw_name(task_id)
         answer = question.get_answer_from_raw_name(cleaned_response)
     except IndexError:
-        logging.critical('Answer {} of type {} not found in schema for question {} '.format(
+        raise ValueError('Answer {} of type {} not found in schema for question {} '.format(
             cleaned_response, type(cleaned_response), task_id))
         return None
     return answer.name
@@ -41,21 +42,25 @@ get_answer_udf = udf(lambda x, y: get_answer(x, y, dr5_schema), returnType=Strin
 
 
 def api_df_to_responses(df):
+    
+    df.printSchema()
 
-    df.select('created_at').show()
     df = df.withColumn('created_at', to_timestamp(df['created_at']))
-    print(df['created_at'])
-    start_date = to_date(lit('2018-03-20')).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
-    df.select('created_at').show()
-    print(start_date)
-    print(df.count())
-    df = df.filter(df['created_at'] > start_date)  # requires pyspark > 2.2 or fails silently, removing all rows...
-    print(df.count())
+    start_date_str = '2018-03-20'
+    start_date = to_date(lit(start_date_str)).cast(TimestampType())  # lit means 'column of literal value' i.e. dummy column of that everywhere
+
+    print(f'Before applying filters: {df.count()}')
+    df = df.filter(df['created_at'] > start_date)  # requires pyspark 3.0+ or fails silently, removing all rows...
+    print(f'Classifications after {start_date_str}: {df.count()}')
+
     cols_to_preserve = [
         'created_at',
         'workflow_id',
+        'workflow_version',
         'user_id',
+        'person_id',
         'subject_id',
+        'iauname',
         'classification_id'
     ]
 
@@ -67,29 +72,46 @@ def api_df_to_responses(df):
                 df[col].cast(StringType())
             )
 
+    # print('Exploding annotations')
     exploded = df.select(
         explode('annotations').alias('annotations_struct'),
         *cols_to_preserve
     )
+    # df.printSchema()
+    print('Selecting exploded cols + other cols to preserve')
     flattened = exploded.select(
         'annotations_struct.*',
         *cols_to_preserve
         )
 
-    print(flattened.count())
+    # print(f'Total responses: {flattened.count()}')
+
+    flattened = flattened.dropna(how='any', subset=['task_id', 'value'])
+    # print(f'Excluding blank question/answers: {flattened.count()}')
+
     flattened = flattened.filter(flattened['multiple_choice'] == False) # can only compare without lit() when calling directly e.g. df[x]    
-    print(flattened.count())
-    # flattened = flattened.filter(flattened['value'] != 'No')  # this bothers me, can't work out why this should be here. Luckily, with caps, never did anything?
+    print(f'Excluding multiple choice answers: {flattened.count()}')
 
     # https://docs.databricks.com/spark/latest/spark-sql/udf-python.html
     flattened = flattened.withColumn('cleaned_response', sanitise_string_udf(flattened['value']))
-    # TODO filter again to avoid nulls?
+
     flattened = flattened.withColumn(
         'question',
         get_question_udf(
             flattened['task_id']
         )
     )
+
+    print(flattened['workflow_version'])
+
+    workflow_version_with_latest_merging_q = 66.425
+    flattened = flattened.filter(
+        # keep if: not merging q, or not old version
+        (~(flattened['question'] == 'merging')) | (flattened['workflow_version'] >= workflow_version_with_latest_merging_q)  
+    )
+    print(f'Excluding responses to old (before {workflow_version_with_latest_merging_q}) merging question: {flattened.count()}')
+
+
     flattened = flattened.withColumn(
         'response',
         get_answer_udf(
@@ -104,33 +126,13 @@ def api_df_to_responses(df):
     # flat_view = flat_view.drop_duplicates()  # on all columns
 
     # define unique id for each question-response event
-
     flat_view = flat_view.withColumn(
         'response_id',
         get_unique_int_from_three_strings_udf(flat_view['classification_id'], flat_view['question'], flat_view['response'])
     )
-    # flat_view = flat_view.withColumn('hello', lit('world'))
-    # flat_view = flat_view.withColumn('hello_again', lit('world'))
-    # flat_view = flat_view.withColumn(
-    #     'hello_thrice',
-    #     sum(
-    #         [flat_view[col] for col in ['hello', 'hello_again']]
-    #         )
-    #     )
-    # flat_view = flat_view.withColumn('hello_twice', flat_view['hello'] + flat_view['hello_again'])
-
-    # flat_view = flat_view.withColumn(
-    #     'response_id_str',
-    #     flat_view['classification_id'] + flat_view['question'] + flat_view['response']
-    # )
-    # flat_view = flat_view.withColumn(
-    #     'response_id',
-    #     udf(get_uuid_from_str)(df['response_id_str'])
-    # )
-    # flat_view.drop('response_id_str')
 
     return flat_view
-# 34126
+
 
 def get_unique_int_from_three_strings(x: str, y: str, z: str):
     if x is None:

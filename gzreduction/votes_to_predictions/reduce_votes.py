@@ -2,7 +2,7 @@
 import logging
 import pandas as pd
 
-from gzreduction import settings
+# from gzreduction.deprecated import settings
 
 
 def reduce_all_questions(input_df, schema, ignore_users=False, save_loc=None):
@@ -21,14 +21,14 @@ def reduce_all_questions(input_df, schema, ignore_users=False, save_loc=None):
     df = input_df.copy()  # avoid mutating input_df with any extra columns
 
     # filter out some users
-    if ignore_users:
-        initial_len = len(df)
-        logging.warning(f'Ignoring users listed at {settings.users_to_ignore_loc}')
-        users_to_ignore = pd.read_csv(settings.users_to_ignore_loc)['user']
-        df = df[~df['user'].isin(users_to_ignore)]  # important ~
-        logging.info(f'Before unlikely user filter: {initial_len}. After: {len(df)}')
-        if initial_len == len(df):
-            logging.warning('Attempted to filter users, but none were matched and removed - is this expected')
+    # if ignore_users:
+    #     initial_len = len(df)
+    #     logging.warning(f'Ignoring users listed at {settings.users_to_ignore_loc}')
+    #     users_to_ignore = pd.read_csv(settings.users_to_ignore_loc)['user']
+    #     df = df[~df['user'].isin(users_to_ignore)]  # important ~
+    #     logging.info(f'Before unlikely user filter: {initial_len}. After: {len(df)}')
+    #     if initial_len == len(df):
+    #         logging.warning('Attempted to filter users, but none were matched and removed - is this expected')
 
     # work out question and columns
     questions = schema.questions

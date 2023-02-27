@@ -4,22 +4,28 @@ import json
 import pandas as pd
 
 
-def load_classification_line(line):
-    """Classifications are saved to disk as one json per line.
-    Load this json to dict, and handle minor type corrections
+# def load_classification_line(line):
+#     """Classifications are saved to disk as one json per line.
+#     Load this json to dict, and handle minor type corrections
     
-    Args:
-        line (str): json of classification (including annotations)
+#     Args:
+#         line (str): json of classification (including annotations)
     
-    Returns:
-        dict: classification (including annotations)
-    """
-    classification = json.loads(line)
-    assert isinstance(classification, dict)
-    assert isinstance(classification['annotations'], list)
-    classification['created_at'] = pd.to_datetime(classification['created_at'])
-    # TODO any further type updates
-    return classification
+#     Returns:
+#         dict: classification (including annotations)
+#     """
+#     if isinstance(line, str):
+#         # load the whole thing from json
+#         classification = json.loads(line)
+#         assert isinstance(classification, dict)
+#     elif isinstance(line, pd.Series):
+#         # mostly already loaded, but load annotations as json
+#         classification = line
+#         classification['annotations'] = json.loads(classification['annotations'])
+#     assert isinstance(classification['annotations'], list)
+#     classification['created_at'] = pd.to_datetime(classification['created_at'])
+#     # TODO any further type updates
+#     return classification
 
 
 def explode_classification(classification):
@@ -38,7 +44,8 @@ def explode_classification(classification):
     columns_to_copy = ['user_id', 'classification_id', 'created_at', 'subject_ids', 'workflow_version'] 
     for col in columns_to_copy:
         flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
-    return [row.to_dict() for _, row in flat_df.iterrows()]
+    # return [row.to_dict() for _, row in flat_df.iterrows()]
+    return flat_df
 
 
 def is_multiple_choice(response):
@@ -73,6 +80,8 @@ def clean_response(response, schema):
              # remove trailing spaces, lowercase, remove markdown
         response['value'] = sanitise_string(response['value'])
 
+
+
     # check again, because it might now be null
     if not_null_or_space_string(response['value']):
         response = rename_response(response, schema)
@@ -101,8 +110,9 @@ def rename_response(response, schema):
     Returns:
         (pd.Series) of form {'task': new_question_name, 'value': new_answer_value}
     """
+    response = response.copy()  # avoid mutating
     try:
-        del response['task_label']
+        del response['task_label']  # longform task text, not needed
     except KeyError:
         pass
 
@@ -113,10 +123,12 @@ def rename_response(response, schema):
         return None
     response['task'] = question.name
 
+    # print(response['value'])
+
     try:
         answer = question.get_answer_from_raw_name(response['value'])
     except IndexError:
-        logging.critical('Answer {} of type {} not found in schema for question {} '.format(
+        logging.critical('Answer "{}" of type {} not found in schema for question "{}" '.format(
             response['value'], type(response['value']), response['task']))
         return None
     response['value'] = answer.name

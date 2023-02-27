@@ -22,19 +22,26 @@ def get_votes(df, question_col, answer_col, schema, save_loc=None):
         logging.debug('Filtering for question: {}'.format(question.name))
         question_df = df[df[question_col] == question.name].dropna(how='all', axis=1)
         if len(question_df) == 0:
-            raise ValueError(
-                'No answers found for task col "{}" and question {}'.format(
+            logging.critical(
+                'No answers found for question "{}" (task col: "{}"). Making some up to avoid crashing!'.format(
                     question_col, 
                     question.name
                 )
             )
+            for answer in question.answers:
+                question_df = question_df.append(
+                    {'task': question.name, 'value': answer.name, 'created_at': pd.Timestamp.now(tz='utc')},
+                    ignore_index=True)
+            # print(question_df)
+        
+
         logging.debug('Answers: {}'.format(question_df['value'].value_counts()))
 
         answers_as_columns = pd.get_dummies(question_df[answer_col])
         # if any answers are missing (i.e. no responses with that answer), add with 0's
         answers_without_responses = set(question.get_answer_names()) - set(answers_as_columns.columns.values)
         if answers_without_responses:
-            logging.warning('Missing responses for {}, filling in with 0s'.format(answers_without_responses))
+            logging.warning('No-one ever gave the answers {}, filling in with 0s'.format(answers_without_responses))
             for missing_answer in answers_without_responses:
                 answers_as_columns[missing_answer] = 0
 
@@ -51,6 +58,9 @@ def get_votes(df, question_col, answer_col, schema, save_loc=None):
     # recombine
     votes = pd.concat(all_question_dfs, axis=0).fillna(0).reset_index(drop=True)
     votes['created_at'] = pd.to_datetime(votes['created_at'])
+
+    # del votes['task']
+    # del votes['value']
 
     if save_loc is not None:
         votes.to_csv(save_loc, index=False)

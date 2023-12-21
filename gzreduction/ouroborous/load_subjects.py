@@ -4,13 +4,6 @@ import json
 import pandas as pd
 
 
-# TODO move this action to the original extract of decals dr1/dr2 subjects
-# def load_decals_dr1_dr2_subjects(loc, save_loc=None):
-#     df = pd.read_csv(loc)
-#     df['subject_id'] = df['_id'].apply(lambda x: x[9:-1])
-#     return df
-
-
 def load_current_subjects(loc, workflow=None, subject_set=None, save_loc=None):
     df = pd.read_csv(loc, dtype={
         'workflow_id': str,

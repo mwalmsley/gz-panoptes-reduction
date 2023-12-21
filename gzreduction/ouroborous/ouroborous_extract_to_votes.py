@@ -3,8 +3,9 @@ import logging
 
 import pandas as pd
 
-from gzreduction.schemas.dr2_schema import dr2_schema
-from gzreduction.deprecated import settings
+# from gzreduction.schemas.dr2_schema import dr2_schema
+from gzreduction.schemas.ukidss_schema import ukidss_schema
+from gzreduction.ouroborous import settings
 
 
 def load_decals_votes(dr1_classifications, dr2_classifications, save_loc=None):
@@ -36,6 +37,19 @@ def load_decals_votes(dr1_classifications, dr2_classifications, save_loc=None):
     translated_df = explode_df(df, dr2_schema)
 
     votes = dr2_schema.rename_df_using_schema(translated_df)
+
+    if save_loc:
+        votes.to_csv(save_loc, index=False)
+
+    return votes
+
+
+def load_ukidss_votes(ukidss_classifications, save_loc=None):
+    df = remove_rare_answers(ukidss_classifications, ukidss_schema)
+
+    translated_df = explode_df(df, ukidss_schema)
+
+    votes = ukidss_schema.rename_df_using_schema(translated_df)
 
     if save_loc:
         votes.to_csv(save_loc, index=False)
@@ -103,16 +117,16 @@ def explode_df(df, schema):
 if __name__ == '__main__':
 
     logging.basicConfig(
-        filename='ouroborous_extract_to_votes.log',
+        # filename='ouroborous_extract_to_votes.log',
         format='%(asctime)s %(message)s',
-        filemode='w',
+        # filemode='w',
         level=logging.DEBUG)
 
-    logging.info('Creating new DR2 predictions from {} and {}'.format(
-        settings.dr1_classifications_export_loc,
-        settings.dr2_classifications_export_loc
-    ))
-    dr1_df = pd.read_csv(settings.dr1_classifications_export_loc)
-    dr2_df = pd.read_csv(settings.dr2_classifications_export_loc)
-    votes = load_decals_votes(dr1_df, dr2_df, save_loc=settings.dr2_votes_loc)
-    logging.info('Saved new DR2 votes to {}'.format(settings.dr2_votes_loc))
+    # logging.info('Creating new predictions from {} and {}'.format(
+    #     settings.dr1_classifications_export_loc,
+    #     settings.dr2_classifications_export_loc
+    # ))
+    # dr1_df = pd.read_csv(settings.dr1_classifications_export_loc)
+    # dr2_df = pd.read_csv(settings.dr2_classifications_export_loc)
+    # votes = load_decals_votes(dr1_df, dr2_df, save_loc=settings.dr2_votes_loc)
+    # logging.info('Saved new DR2 votes to {}'.format(settings.dr2_votes_loc))

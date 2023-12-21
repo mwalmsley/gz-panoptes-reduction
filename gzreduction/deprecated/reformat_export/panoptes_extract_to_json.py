@@ -6,7 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 
 from gzreduction.panoptes_api.api import api_to_json
-from gzreduction.deprecated import settings
+from gzreduction.ouroborous import settings
 
 
 def load_extract_row(row_str):

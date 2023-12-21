@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 from astropy.table import Table
 
-from gzreduction.deprecated import settings
+from gzreduction.ouroborous import settings
 from gzreduction import shared_utilities
 
 

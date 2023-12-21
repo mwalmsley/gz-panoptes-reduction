@@ -10,7 +10,7 @@ import shutil
 import pandas as pd
 from pyspark import SparkContext, SparkConf
 
-from gzreduction.deprecated import settings
+from gzreduction.ouroborous import settings
 from gzreduction.schemas.dr5_schema import dr5_schema
 from gzreduction.panoptes_api.api import api_to_json
 

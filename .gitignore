@@ -25,15 +25,10 @@ api_results.txt
 
 pytype_output
 
-data/workflow_contents
-data/raw
 auth_token.txt
-data/predictions
-data/preprocessed
-data/votes
-data/streaming
 temp
 temp_download_folder
+data
 
 data/expert_classifications_export.csv
 data/*.csv

@@ -4,63 +4,72 @@ import json
 import pandas as pd
 
 
-# def load_classification_line(line):
-#     """Classifications are saved to disk as one json per line.
-#     Load this json to dict, and handle minor type corrections
+def explode_annotations(df, exclude_tasks=None):
+    df = df.copy()
+    # df is classification export
+    df['annotations'] = df['annotations'].apply(lambda x: json.loads(x))
+    
+    # .explode() preserves the index, so this index says which initial index contributed to which row
+    # will use this to join the non-exploded columns later
+    expected_index = df['annotations'].explode().index
+
+    # this fully explodes the dataframe, but resets the index...
+    exploded = pd.json_normalize(df['annotations'].explode())
+    # so re-attach the index
+    exploded = exploded.set_index(expected_index)
+
+    # TODO doubt I need created_at
+    cols_to_copy = ['id_str', 'user_id', 'classification_id', 'created_at', 'subject_ids', 'workflow_version'] 
+    # now join on index to copy columns from initial dataframe
+    exploded = exploded.join(df[cols_to_copy], how='left')
+    assert len(exploded) > len(df)
+
+    if exclude_tasks:  # e.g. [T10, T12]
+        for task in exclude_tasks:
+            exploded = exploded[exploded['task'] != task]
+
+    return exploded
+
+
+def clean_exploded_annotations(df, schema):
+    cleaned = df.apply(lambda x: clean_response(x, schema=schema), axis=1)
+    cleaned = cleaned.drop_duplicates(subset=['classification_id', 'task', 'value'])
+    cleaned = cleaned.reset_index(drop=True)
+    return cleaned
+
+# def explode_classification(classification):
+#     """Convert a single line in Panoptes export to list of responses
     
 #     Args:
-#         line (str): json of classification (including annotations)
-    
+#         classification (dict): single Panoptes classification e.g. single API response
+
 #     Returns:
-#         dict: classification (including annotations)
+#         list: of dicts of form {time, user, subject, question, answer}
 #     """
-#     if isinstance(line, str):
-#         # load the whole thing from json
-#         classification = json.loads(line)
-#         assert isinstance(classification, dict)
-#     elif isinstance(line, pd.Series):
-#         # mostly already loaded, but load annotations as json
-#         classification = line
-#         classification['annotations'] = json.loads(classification['annotations'])
-#     assert isinstance(classification['annotations'], list)
-#     classification['created_at'] = pd.to_datetime(classification['created_at'])
-#     # TODO any further type updates
-#     return classification
+#     annotation_data = classification['annotations']
+#     flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
+#     # WARNING export needs subject_id -> subject_ids
+#      # also need to update response_to_line_header
+#     columns_to_copy = ['user_id', 'classification_id', 'created_at', 'subject_ids', 'workflow_version'] 
+#     for col in columns_to_copy:
+#         flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
+#     # return [row.to_dict() for _, row in flat_df.iterrows()]
+#     return flat_df
 
 
-def explode_classification(classification):
-    """Convert a single line in Panoptes export to list of responses
-    
-    Args:
-        classification (dict): single Panoptes classification e.g. single API response
-
-    Returns:
-        list: of dicts of form {time, user, subject, question, answer}
-    """
-    annotation_data = classification['annotations']
-    flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
-    # WARNING export needs subject_id -> subject_ids
-     # also need to update response_to_line_header
-    columns_to_copy = ['user_id', 'classification_id', 'created_at', 'subject_ids', 'workflow_version'] 
-    for col in columns_to_copy:
-        flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
-    # return [row.to_dict() for _, row in flat_df.iterrows()]
-    return flat_df
+# def is_multiple_choice(response):
+#     try:
+#         return response['multiple_choice'] == True  # also handles = None -> False
+#     except KeyError:  # for exports where this field doesn't yet exist
+#         multiple_choice = {
+#             'Do you see any of these rare features in the image?',
+#             'Do you see any of these rare features?',
+#         }
+#         return response['task_label'] in multiple_choice
 
 
-def is_multiple_choice(response):
-    try:
-        return response['multiple_choice'] == True  # also handles = None -> False
-    except KeyError:  # for exports where this field doesn't yet exist
-        multiple_choice = {
-            'Do you see any of these rare features in the image?',
-            'Do you see any of these rare features?',
-        }
-        return response['task_label'] in multiple_choice
-
-
-def is_null_classification(response):
-    return response['value'] is None
+# def is_null_classification(response):
+#     return response['value'] is None
 
 
 def clean_response(response, schema):
@@ -94,6 +103,8 @@ def clean_response(response, schema):
 def not_null_or_space_string(x):
     if x is None:
         return False
+    if type(x) is not str:
+        raise TypeError(x)
     return bool(x.strip(' '))  # True if string has any characters
 
 

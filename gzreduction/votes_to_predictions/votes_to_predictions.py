@@ -34,7 +34,7 @@ def votes_to_predictions(votes, schema, reduced_save_loc=None, predictions_save_
 if __name__ == '__main__':
 
 
-    from gzreduction.deprecated import settings
+    from gzreduction.ouroborous import settings
     from gzreduction.schemas.dr2_schema import dr2_schema
     from gzreduction.schemas.dr5_schema import dr5_schema
 

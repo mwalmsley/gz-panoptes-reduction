@@ -2,7 +2,7 @@
 import pandas as pd
 
 from shared_astro_utils.matching_utils import match_galaxies_to_catalog_pandas
-from gzreduction.deprecated import settings
+from gzreduction.ouroborous import settings
 
 
 def filter_subset(catalog, subset_coords):

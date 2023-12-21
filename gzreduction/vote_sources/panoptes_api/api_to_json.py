@@ -14,7 +14,7 @@ import numpy as np
 from tqdm import tqdm
 from panoptes_client import Panoptes, Classification, Subject
 
-from gzreduction.deprecated import settings
+from gzreduction.ouroborous import settings
 from gzreduction.panoptes_api.api import get_chunk_ids
 
 

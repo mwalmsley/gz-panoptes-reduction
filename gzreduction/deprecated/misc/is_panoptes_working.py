@@ -4,7 +4,7 @@ import logging
 import pandas as pd
 
 from gzreduction.ouroborous import load_subjects
-from gzreduction.deprecated import settings
+from gzreduction.ouroborous import settings
 from gzreduction import shared_utilities
 
 

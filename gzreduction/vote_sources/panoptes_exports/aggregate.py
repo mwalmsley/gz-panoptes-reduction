@@ -46,15 +46,15 @@ def responses_to_reduced_votes(flat_df: pd.DataFrame, schema, drop_people=[]):
     df = df.groupby('id_str').agg('sum').reset_index()
 
     # now aggregate after
-    
     for col in schema.get_count_columns():
         assert col in df.columns.values
+        df[col] = df[col].astype(int)
 
     # calculate total responses per question
     for question in schema.questions:
-        # TODO should simplify
+        # TODO could simplify
         df[question.total_votes] = functools.reduce(lambda x, y: x + y, [df[col] for col in question.get_count_columns()])
-
+        df[question.total_votes] = df[question.total_votes].astype(int)
 
     # calculate fractions per answer
     for question in schema.questions:

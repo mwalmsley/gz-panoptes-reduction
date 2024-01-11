@@ -1,13 +1,14 @@
 import logging
 import json
+from functools import lru_cache, partial
 
 import pandas as pd
 
 
 def explode_annotations(df, exclude_tasks=None):
-    df = df.copy()
+    # df = df.copy()
     # df is classification export
-    df['annotations'] = df['annotations'].apply(lambda x: json.loads(x))
+    df['annotations'] = df['annotations'].apply(json.loads)  # , meta=('annotations', str)
     
     # .explode() preserves the index, so this index says which initial index contributed to which row
     # will use this to join the non-exploded columns later
@@ -32,47 +33,14 @@ def explode_annotations(df, exclude_tasks=None):
 
 
 def clean_exploded_annotations(df, schema):
-    cleaned = df.apply(lambda x: clean_response(x, schema=schema), axis=1)
-    cleaned = cleaned.drop_duplicates(subset=['classification_id', 'task', 'value'])
-    cleaned = cleaned.reset_index(drop=True)
-    return cleaned
-
-# def explode_classification(classification):
-#     """Convert a single line in Panoptes export to list of responses
-    
-#     Args:
-#         classification (dict): single Panoptes classification e.g. single API response
-
-#     Returns:
-#         list: of dicts of form {time, user, subject, question, answer}
-#     """
-#     annotation_data = classification['annotations']
-#     flat_df = pd.DataFrame(annotation_data)  # put each [task, value] pair on a row
-#     # WARNING export needs subject_id -> subject_ids
-#      # also need to update response_to_line_header
-#     columns_to_copy = ['user_id', 'classification_id', 'created_at', 'subject_ids', 'workflow_version'] 
-#     for col in columns_to_copy:
-#         flat_df[col] = classification[col]  # record the (same) user/subject/metadata on every row
-#     # return [row.to_dict() for _, row in flat_df.iterrows()]
-#     return flat_df
+    # clean_response_partial = partial(clean_response, schema=schema)
+    df = df.apply(lambda x: clean_response(x, schema=schema), axis=1)  # will copy df
+    df = df.drop_duplicates(subset=['classification_id', 'task', 'value'])
+    df = df.reset_index(drop=True)
+    return df
 
 
-# def is_multiple_choice(response):
-#     try:
-#         return response['multiple_choice'] == True  # also handles = None -> False
-#     except KeyError:  # for exports where this field doesn't yet exist
-#         multiple_choice = {
-#             'Do you see any of these rare features in the image?',
-#             'Do you see any of these rare features?',
-#         }
-#         return response['task_label'] in multiple_choice
-
-
-# def is_null_classification(response):
-#     return response['value'] is None
-
-
-def clean_response(response, schema):
+def clean_response(response: pd.Series, schema):
     """Clean a single response
     For response values: remove trailing spaces, set lowercase and remove markdown, remove null responses
     Rename question.raw_name to question.name and answer.raw_name to answer.name, for all questions and answers
@@ -97,10 +65,10 @@ def clean_response(response, schema):
         return response
 
     # if we made the response null, return a None (filter outside, slightly awkward)
-    return None
+    return pd.Series()
 
-
-def not_null_or_space_string(x):
+@lru_cache(maxsize=2**8)
+def not_null_or_space_string(x: str):
     if x is None:
         return False
     if type(x) is not str:
@@ -146,8 +114,8 @@ def rename_response(response, schema):
 
     return response
 
-
-def sanitise_string(string):
+@lru_cache(maxsize=2**8)
+def sanitise_string(string: str):
     """
     Remove ' and leading/trailing space, then remove any leading image markdown, make lowercase
     TODO ' removal is currently broken/untested
@@ -164,8 +132,8 @@ def sanitise_string(string):
         logging.warning('{} is not string'.format(string))
         return string
 
-
-def remove_image_markdown(string):
+@lru_cache(maxsize=2**8)
+def remove_image_markdown(string: str):
     """
     Remove leading image markdown by bracket detection
     Assumes string is in one of two forms:

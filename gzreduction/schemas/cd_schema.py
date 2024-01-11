@@ -234,4 +234,4 @@ _questions = [
     )
 ]
 
-schema = Schema(_questions)
+cd_schema = Schema(_questions)

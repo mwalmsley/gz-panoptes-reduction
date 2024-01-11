@@ -1,8 +1,13 @@
 
+
 class Schema(object):
 
-    def __init__(self, questions):
+    def __init__(self, questions: list):
         self.questions = questions
+
+        # for speedy use later
+        self.question_raw_name_indices = dict(zip([q.raw_name for q in questions], range(len(questions)) ))
+        self.question_name_indices = dict(zip( [q.name for q in questions], range(len(questions)) ))
 
     def add_question(self, question):
         self.questions.append(question)
@@ -14,10 +19,10 @@ class Schema(object):
         return [question.raw_name for question in self.questions]
 
     def get_question_from_name(self, question_name):
-        return list(filter(lambda x: x.name == question_name, self.questions))[0]
+        return self.questions[self.question_name_indices[question_name]]
 
     def get_question_from_raw_name(self, question_raw_name):  # needs test
-        return list(filter(lambda x: x.raw_name == question_raw_name, self.questions))[0]
+        return self.questions[self.question_raw_name_indices[question_raw_name]]
 
     def get_count_columns(self):
         return [question.get_count_column(answer) for question in self.questions for answer in question.answers]
@@ -40,25 +45,22 @@ class Question(object):
         self.name = name
         self.raw_name = raw_name
         self.total_votes = name + '_total-votes'
-        # self.prediction = name + '_prediction'
-        # self.prediction_conf = name + '_prediction-conf'
-        # self.prediction_encoded = name + '_prediction-encoded'
-        # self.truth_encoded = name + '_truth-encoded'
+        
         self.answers = answers
+
+        # for speedy use later
+        self.answer_raw_name_indices = dict(zip([q.raw_name for q in answers], range(len(answers)) ))
+        self.answer_name_indices = dict(zip( [q.name for q in answers], range(len(answers)) ))
+
 
     def __repr__(self):
         return 'Question {}'.format(self.name)
 
-
-    # def set_answers(self, answers):
-    #     [answer.set_question(self) for answer in answers]
-    #     self.answers = answers
-
     def get_answer_from_name(self, answer_name):
-        return list(filter(lambda x: x.name == answer_name, self.answers))[0]
+        return self.answers[self.answer_name_indices[answer_name]]
 
     def get_answer_from_raw_name(self, answer_raw_name):
-        return list(filter(lambda x: x.raw_name == answer_raw_name, self.answers))[0]
+        return self.answers[self.answer_raw_name_indices[answer_raw_name]]
 
     def get_answer_names(self):
         return [answer.name for answer in self.answers]

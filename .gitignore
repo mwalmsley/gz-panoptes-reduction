@@ -19,7 +19,7 @@ dist
 
 zooniverse_login.txt
 zooniverse_login.json
-gzreduction/panoptes/api/zooniverse_login.json
+gzreduction/vote_sources/panoptes_api/zooniverse_login.json
 api_results.txt
 !tests
 

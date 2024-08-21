@@ -6,9 +6,9 @@ import pandas as pd
 
 
 def explode_annotations(df, exclude_tasks=None):
-    # df = df.copy()
+    df = df.copy()
     # df is classification export
-    df['annotations'] = df['annotations'].apply(json.loads)  # , meta=('annotations', str)
+    # df['annotations'] = df['annotations'].apply(json.loads)  # , meta=('annotations', str)
     
     # .explode() preserves the index, so this index says which initial index contributed to which row
     # will use this to join the non-exploded columns later

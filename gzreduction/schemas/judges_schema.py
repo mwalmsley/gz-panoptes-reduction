@@ -4,7 +4,7 @@ from gzreduction.schemas.schema import Schema, Question, Answer
 
 _questions = [
     Question(
-        name='lens',
+        name='expert',
         raw_name='T0',
         answers=[
             Answer(

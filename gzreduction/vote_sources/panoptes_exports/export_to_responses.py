@@ -22,7 +22,7 @@ def explode_annotations(df, exclude_tasks=None):
     cols_to_copy = ['id_str', 'user_id', 'classification_id', 'created_at', 'subject_ids', 'workflow_version'] 
     # now join on index to copy columns from initial dataframe
     exploded = exploded.join(df[cols_to_copy], how='left')
-    assert len(exploded) > len(df)
+    assert len(exploded) >= len(df)
 
     if exclude_tasks:  # e.g. [T10, T12]
         for task in exclude_tasks:

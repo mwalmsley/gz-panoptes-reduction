@@ -1,4 +1,4 @@
-
+from functools import lru_cache
 
 class Schema(object):
 
@@ -17,7 +17,7 @@ class Schema(object):
 
     def get_raw_question_names(self):
         return [question.raw_name for question in self.questions]
-
+    
     def get_question_from_name(self, question_name):
         return self.questions[self.question_name_indices[question_name]]
 

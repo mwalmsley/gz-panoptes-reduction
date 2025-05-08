@@ -34,3 +34,4 @@ data/expert_classifications_export.csv
 data/*.csv
 data/expert_classifications_export
 *.pdf
+*.csv
